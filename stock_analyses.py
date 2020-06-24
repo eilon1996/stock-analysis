@@ -292,7 +292,7 @@ def get_all_available_stocks_symbols(symbol = "", length = 2):
             return symbol
         except:
             return None
-
+   
     stocks = []
     for i in range(ord("a"), ord("z")+1):
         temp = get_all_available_stocks_symbols(symbol+chr(i), length-1)
