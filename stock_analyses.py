@@ -12,9 +12,7 @@ from pandas.io.html import read_html
 from bs4 import BeautifulSoup
 from lxml import html
 from pandas.util.testing import assert_frame_equal
-
-
-
+import xlsxwriter
 
 def get_relevant_dates(time_length, end_time):
     """return a list of pers of lists dates in string for the relevent time
@@ -125,6 +123,8 @@ def get_stock_price_data(stock, time_length=5, end_time=[]):
         res.append(float(values[i*250]))
     return res
 
+a = get_stock_price_data("g")
+
 
 def get_stock_price_data2(stock, time_length=5, end_time=[]):
     """end time need to be list or tuple for instence [2018,5,28]
@@ -137,8 +137,8 @@ def get_stock_price_data2(stock, time_length=5, end_time=[]):
         try:
             df = dr.data.get_data_yahoo(stock, start=dates[i][0], end=dates[i][1])
             res.append(df["Close"].values[0])
-        except KeyError:
-            print("exception")
+        except:
+            print("failed")
             break
     return res
 
@@ -279,9 +279,87 @@ def stock_graph_panda(stock, start_date='2015-3-1', end_date='2020-3-1'):
     df[["Close", "Open"]].plot(figsize=(5, 5))
     plt.show()
 
-
-
 def get_yearly_yield(stock_symbol, time_length=5, end_time=[]):
     date_start_end = translate_date_to_string(time_length, end_time)
     # TODO
 
+# half work
+# print all 2 letters , and all 1 letter in diff list, for 3 its open anther un nesesery nested list
+def get_all_available_stocks_symbols(symbol = "", length = 2):
+    if length <=0:
+        try:
+            #get_stock_price_data(symbol)
+            return symbol
+        except:
+            return None
+
+    stocks = []
+    for i in range(ord("a"), ord("z")+1):
+        temp = get_all_available_stocks_symbols(symbol+chr(i), length-1)
+        if temp is not None:
+            stocks.append(temp)
+    # for shorter stocks' symbols
+    if len(symbol) == 0:
+        stocks.append(get_all_available_stocks_symbols(symbol, length-1))
+    return stocks
+
+
+def get_all_available_stocks_symbols_fast(symbol = "", length = 2):
+    if length <=0:
+        try:
+           # dr.data.get_data_yahoo(stock, start="2020-1-1", end="2020-2-1")
+            return symbol
+        except:
+            return None
+
+    try:
+   #     dr.data.get_data_yahoo(stock, start="2020-1-1", end="2020-2-1")
+        stocks.append(symbol)
+    except:
+        pass
+    stocks = []
+    for i in range(ord("a"), ord("z")+1):
+        temp = get_all_available_stocks_symbols_fast(symbol+chr(i), length-1)
+        if type(temp) == list:
+            stocks.extend(temp)
+        elif temp is not None:
+            stocks.append(temp)
+    # for shorter stocks' symbols
+    if len(symbol) == 0:
+        temp = get_all_available_stocks_symbols_fast(symbol+chr(i), length-1)
+        if type(temp) == list:
+            stocks.extend(temp)
+        elif temp is not None and len(temp)>0:
+            stocks.append(temp)
+    return stocks
+
+def get_all_stocks(length):
+    if 0 >= length:
+        return
+    global lst
+    if length == 1:
+        for i, l in enumerate(range(ord("a"), ord("z")+1)):
+            lst[i] = chr(l)
+
+    for i, l in enumerate(range(ord("a"), ord("z")+1)):
+        the_rest = get_all_stocks(lst, length-1)
+        lst[i] = [chr(l)+t for t in the_rest]
+    return lst
+
+
+def get_stocks_symbols_to_xlsx(file_name, info):
+    # info should be nested list with the stocks symbols divided acording to the first letter
+    # saving file with existing file name will run-over the old one
+    workbook = xlsxwriter.Workbook(file_name+'\\all stocks symbols.xlsx')
+    worksheet = workbook.workbooks[supplier].add_worksheet('Sheet1')
+    worksheet.right_to_left()
+    for col, stocks_per_letter in enumerate(info):
+        for row, symbol in enumerate(stocks_per_letter):
+            worksheet.write(row, col, symbol)
+    workbook.close()
+
+
+
+a = get_all_available_stocks_symbols("", 2)
+print(a)
+get_stocks_symbols_to_xlsx("desktop", a)
