@@ -14,6 +14,8 @@ from lxml import html
 from pandas.util.testing import assert_frame_equal
 import xlsxwriter
 
+# a small change for git
+
 def get_relevant_dates(time_length, end_time):
     """return a list of pers of lists dates in string for the relevent time
         example: [[2020-3-10, 2020-3-5], [2019-3-10, 2019-3-5], [2018-3-10, 2018-3-5], [2017-3-10, 2017-3-5], [2016-3-10, 2016-3-5]]
@@ -292,7 +294,7 @@ def get_all_available_stocks_symbols(symbol = "", length = 2):
             return symbol
         except:
             return None
-   
+
     stocks = []
     for i in range(ord("a"), ord("z")+1):
         temp = get_all_available_stocks_symbols(symbol+chr(i), length-1)
