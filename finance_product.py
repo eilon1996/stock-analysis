@@ -12,45 +12,176 @@ import csv
 import numpy as np
 import pandas_datareader as dr
 import xlsxwriter
+import itertools
 
+import calculation
+import stock
+import etf
 
-#import stock
-#import etf
-#import partfolio
-#import database_handler
 
 class FinanceProduct:
 
+
     def __init__(self, symbol):
-        self.symbol = symbol
-        self.full_name = self.get_stock_name()
-   #     self.age
-   #     self.trade_value
-        self.price_history = self.get_stock_price_data()
-        self.yearly_yield = self.get_yearly_yield()
+        self.symbol = symbol.upper()
+        # will raise an error if not exist (which one?)
+        data = self.get_stock_name()
+        self.full_name = data[0]
+        self.price = data[1]
+        self.price_history, self.age = self.get_stock_price_data_and_age()
+        self.yield_1y, self.yield_5y = self.get_last_and_full_yield()
         self.yearly_dividend = self.get_dividends()
+        self.yearly_dividend_per_share = self.div_in_pecentage()
+        try:
+            self.last_div = self.yearly_dividend[-1]
+        except IndexError:
+            self.last_div = 0
 
-
-        # fix so the dividend will match the price
-        # option - run on the div and from there which price you need
-        #self.yealy_dividend_per_share = [self.yearly_dividend[round(i*dividends_per_quorter)]/self.price_history[i]\
-        #                                        for i in range(len(self.yearly_dividend))]
         basic_data = self.get_basic_data()
-        self.average_value = basic_data["avg_value"]
+        self.avg_volume = basic_data["avg_volume"]
         self.pe_ratio = basic_data["pe_ratio"]
         if basic_data["expense_ratio"] == -1: # its a stock not etf
             # TODO: check if its necesery to write stock.Stock or just Stock will do
-            self.product = stock.Stock(symbol, basic_data[market_cap])
+            self.product = stock.Stock(symbol, basic_data["market_cap"])
         else:
             self.product = etf.Etf(symbol, basic_data["expense_ratio"])
+        self.country = "-"  # TODO
+        self.analyst_score = -1.0  # TODO
 
-    def get_stock_name(self):
+
+    def show_data(self):
+
+        col_label = ["yield", "dividend", "dividend in %"]
+        col_label_stock = ["revenue", "income",  "assents", "free cash", "debt"]
+        col_label_etf = ["top holdings", "stocks share",  "bond share", "sectors"]
+
+        row_lable_stock= ["5 years yield", "profitability", "debt/assents", "market_cap", "top_sector", "country",
+                          "pe ratio",  "avg volume", "analyst score"]
+        """
+        data = []
+        row_lable = []
+        for s in symbols:
+            tmp = self.mydb.get_product_by_symbol(s.upper())
+            if len(tmp) > 0:
+                row = tmp[0]
+            else:
+                try:
+                    self.mydb.insert_product(fp.FinanceProduct(s.upper()))
+                except:
+                    print("a problem occurred will loading ", s.upper())
+                    continue
+                row = self.mydb.get_product_by_symbol(s.upper())[0]
+            for index in range(max(0, len(row[1]) // 2 - 2), len(row[1]) - 1):
+                if row[1][index] == " ":
+                    row_lable.append(row[1][:index] + "\n" + row[1][index + 1:])
+                    break
+                data.append(list(row))
+
+        fig, ax = plt.subplots(2, 1)
+        # hide axes
+        fig.patch.set_visible(False)
+
+        # full screen
+        mng = plt.get_current_fig_manager()
+        mng.window.state('zoomed')
+
+        ax[1].axis('off')
+        ax[1].axis('tight')
+
+        data = np.asarray(data)[:, 2:]
+        df = pd.DataFrame(data, columns=self.headlines[2:])
+        table = ax[1].table(cellText=df.values, colLabels=df.columns, rowLabels=row_lable, cellLoc='center')
+        fig.tight_layout()
+        table.auto_set_font_size(False)
+        table.set_fontsize(10)
+
+        ###############
+        for s in symbols:
+            df = dr.DataReader(s, 'yahoo')
+            ax[0].plot_date(df.index, df.Close, '-')
+            plt.plot_date([], [], label=s)
+
+        plt.xlabel('Date')
+        plt.ylabel('Price')
+        plt.title('  VS  '.join(symbols))
+        plt.legend()
+
+        plt.show()
+        """
+
+    def total_yield(self):
+        # in case it is not a full year we estimate the dividend to be like in the beginning
+        sumed_div = self.yearly_dividend_per_share.sum(axis=1)
+        index = 3 # check case with less then 4 div a year
+        while self.yearly_dividend_per_share[-1, index] == 0:
+            index -= 1
+        sumed_div[-1] = sumed_div[-1]*len(sumed_div[0])/(1+index)
+
+        if len(sumed_div) < 6:
+            bench = calculation.get_benchmark_dividend()
+            bench[-1] = bench[-1]*len(bench[0])/(1+index)
+
+            # in case the prudact is less then 5 years we are going to estimate his yield
+            # we compare it's yield to the QQQ and use this ratio to estimate the yield in the missing years
+            bench_growth = [bench[i+1]/bench[i] for i in range(len(bench)-1)]
+            div_growth = self.sumed_div[-1, 0] / self.sumed_div[0, 0]
+            start = len(self.sumed_div)
+            bench_yield = 1
+            for i in bench_growth[start:]:
+                bench_yield = bench_yield*i
+            ratio = div_growth/bench_yield
+            estimate_div = []
+            for i in bench[:-start]:
+                estimate_div.append(i*ratio)
+            # need to be check
+
+        total_growth = self.yearly_dividend*(sumed_div+1)
+
+        if type(self.product) == Etf:
+            total_growth = total_growth*(1-self.product.expense_ratio)
+
+        # find a better way to do it
+        res = 1
+        for i in total_growth:
+            res = res*i
+        return calculation.two_point_percentage(res)
+
+    def div_in_pecentage(self):
+        np.seterr(divide="ignore")
+        try:
+            res = self.yearly_dividend/self.price_history
+        except ValueError:
+            sumed_div = self.yearly_dividend.sum(axis=1)
+            res = [sumed_div[i]/self.price_history[i,0]
+                for i in range(min(len(self.price_history[:-1]), len(sumed_div[:-1])))[::-1]]
+            res = np.asarray(res[::-1])
+        res[np.isinf(res)] = 0
+        res[np.isnan(res)] = 0
+        np.seterr(divide="raise")
+        return res
+
+
+    def get_stock_name(self, get_price=True):
         url = "https://finance.yahoo.com/quote/"+self.symbol+"/"
         html_content = requests.get(url).text           # Make a GET request to fetch the raw HTML content
         soup = BeautifulSoup(html_content, "lxml")      # Parse the html content
         data = soup.find("div", attrs={"id": "quote-header-info"})
+        name = data.contents[1].contents[0].contents[0].contents[0].text
+        if get_price:
+            return name, self.get_corrent_price(data)
 
-        return data.contents[1].contents[0].contents[0].contents[0].text
+        return name
+
+
+
+    def get_corrent_price(self, data=None):
+        if data is None:
+            url = "https://finance.yahoo.com/quote/"+self.symbol+"/"
+            html_content = requests.get(url).text           # Make a GET request to fetch the raw HTML content
+            soup = BeautifulSoup(html_content, "lxml")      # Parse the html content
+            data = soup.find("div", attrs={"id": "quote-header-info"})
+
+        return calculation.convert_string_to_number(data.contents[2].contents[0].contents[0].text)
 
 
     # also detarmain if its a stock or etf
@@ -63,61 +194,33 @@ class FinanceProduct:
         html_content = requests.get(url).text           # Make a GET request to fetch the raw HTML content
         soup = BeautifulSoup(html_content, "lxml")      # Parse the html content
         data = soup.find("div", attrs={"id": "quote-summary"})
-        res["avg_volume"] = self.convert_string_to_number(data.contents[0].contents[0].contents[0].contents[7].contents[1].text)
-        res["pe_ratio"] = self.convert_string_to_number(data.contents[1].contents[0].contents[0].contents[2].contents[1].text)
+        res["avg_volume"] = int(calculation.convert_string_to_number(data.contents[0].contents[0].contents[0].contents[7].contents[1].text))
+        res["pe_ratio"] = calculation.convert_string_to_number(data.contents[1].contents[0].contents[0].contents[2].contents[1].text)
         res["expense_ratio"] = -1
 
         if "Expense" in data.contents[1].contents[0].contents[0].contents[6].contents[0].text: # only stocks has "dividend in it"
-            res["expense_ratio"] = self.convert_string_to_number(data.contents[1].contents[0].contents[0].contents[5].contents[1].text.split("(")[1][:-2])
+            res["expense_ratio"] = calculation.convert_string_to_number(data.contents[1].contents[0].contents[0].contents[5].contents[1].text)
         else:
             res["market_cap"] = data.contents[1].contents[0].contents[0].contents[0].contents[1].text
             # TODO extract the number and check the letter (b - billion, ...)
 
         return res
 
-    def check_if_exist(self):
-        try:
-            dr.data.get_data_yahoo(self.symbol, start="2020-1-1", end="2020-2-1")
-            return True
-        except Exception as e:
-            self.stocks_wrong.append([self.symbol, e])
-            return False
-
-
-    @staticmethod # consider adding to other methods
-    def convert_string_to_number(number):
-        """"for dealing with representing that inclouds ','  like  10,000
-            relevent for extarcting data from HTML"""
-        try:
-            minus = False
-            if number[0] == "-":
-                minus = True
-                number = number[1:]
-
-            divided_number = number.split(",")
-            res = 0
-            for i in divided_number:
-                res = res * 1000 + float(i)
-            if minus: res = -1 * res
-            return res
-        except ValueError:
-            return -1
 
     def get_dividends(self, length=5):
         """
         :param length: int
         :type length: how many years you want to check
         :return: nested list contain every year dividend
-        :rtype: list
+        :rtype: array
         """
-        year_start = int(time.mktime((time.localtime()[0], 1, 1, 1, 1, 1, 1, 1, 1)))
-        one_year = year_start - int(time.mktime((time.localtime()[0] - 1, 1, 1, 1, 1, 1, 1, 1, 1)))
-        start = year_start - length * one_year
-        end = year_start
-        # to get dividends not in full years
-        # now = time.localtime()
-        # start = int(time.mktime((now[0]-length,) + now[1:]))
-        # end = int(time.mktime(now))
+
+        #perhapse move this part to calculation
+        now = time.localtime()
+        year_start = int(time.mktime((now[0], 1, 1, 1, 1, 1, 1, 1, 1)))
+        one_year_in_seconds = 31536000
+        start = year_start - length * one_year_in_seconds
+        end = int(time.mktime(now))
 
         hdrs = {"authority": "finance.yahoo.com",
                 "method": "GET",
@@ -145,37 +248,53 @@ class FinanceProduct:
         try:
             div_per_year = [[float(dividends['Dividends'][len(dividends["Date"]) - 2].replace(' Dividend', ''))]]
         except (IndexError, KeyError):
-            return None
+            return None # TODO: find better solution how to handle no dividends
 
         index = 0
         for i in range(1, len(dividends["Date"]) - 1)[::-1]:
             if dividends["Date"][i][-4:] != dividends["Date"][i - 1][-4:]:
                 index += 1
                 div_per_year.append([])
-            div_per_year[index].append(float(dividends['Dividends'][i - 1].replace(' Dividend', '')))
-        # print(div_per_year)
-        return div_per_year
+            try:
+                div_per_year[index].append(float(dividends['Dividends'][i - 1].replace(' Dividend', '')))
+            except ValueError:
+                pass
+        # create a full rectangle array by puting 0 in the missing parts
+        return np.array(list(itertools.zip_longest(*div_per_year, fillvalue=0))).T
 
     # TODO: return price for every qourter (per year and not just 4 month earlier
     # TODO: handling diffrent ways for geting time
-    def get_stock_price_data(self, time_length=5, end_time=[]):
+    def get_stock_price_data_and_age(self, time_length=5, end_time=[]):
         """end time need to be list or tuple for instence [2018,5,28]
         the def return a list of the value of the stock in 1 year gaps
                     incase the stock exist less then the years expected it
                     will return only the years in which its exist"""
-        temp = self.get_relevant_dates(time_length, end_time)
-        dates = [temp[-1][0], temp[0][0]]
+        dates = calculation.get_relevant_dates(time_length, end_time)
         df = dr.data.get_data_yahoo(self.symbol, start=dates[0], end=dates[1])
         values = df["Close"].values
-        res = []
-        for i in range((len(values) - 1) // 250)[::-1]:
-            res.append([])
+        age = round((len(values)/250)*10)/10
+        prices = np.zeros((int(np.ceil(age)), 4))
+        for i in range(len(prices)):
             for j in range(4):
-                res[i].append(float(values[i * 250 + j*250//4]))
-        return res
+                try:
+                    prices[i, j] = float(values[i * 250 + j*(250-1)//4])
+                except IndexError:
+                    break
+        return prices, age
 
-    def stock_graph_matplotlib(self, stock):
-        df = dr.DataReader(stock, 'yahoo')
+    def show_precise_graph(self):
+        df = dr.DataReader(self.symbol, 'yahoo')
+        plot = plt.subplots(2, 1)[1]
+        plot[0].plot_date(df.index, df.Close, '-')
+
+        plt.xlabel('Date')
+        plt.ylabel('Price')
+        plt.title('Interesting Graph')
+        plt.legend()
+        plt.show()
+
+    def show_precise_graph2(self):
+        df = dr.DataReader(self.symbol, 'yahoo')
         plt.plot_date(df.index, df.Close, '-')
 
         plt.xlabel('Date')
@@ -184,8 +303,9 @@ class FinanceProduct:
         plt.legend()
         plt.show()
 
+
     # need extra check
-    def show_precise_graph(self, start_date='2015-3-1', end_date='2020-3-1'):
+    def show_precise_graph1(self, start_date='2015-3-1', end_date='2020-3-1'):
         # YYYY-M-D
         df = dr.data.get_data_yahoo(self.symbol, start=start_date, end=end_date)
         close_price = df["Close"]
@@ -199,30 +319,44 @@ class FinanceProduct:
         df[["Close", "Open"]].plot(figsize=(5, 5))
         plt.show()
 
-    def get_yearly_yield(self):
+    def get_detailed_yield(self):
         """will return the averge yeild, 5 years yeild, yeild comper to the qqq, is the yeild rising or not"""
         # TODO
-        growth = [self.price_history[i+1]/self.price_history[i] for i in range(len(self.price_history)-1)]
+        growth = [self.price_history[i+1][0]/self.price_history[i][0] for i in range(len(self.price_history)-1)]
         return growth
 
+    def get_last_and_full_yield(self):
+        index = 3
+        while self.price_history[-1,index] == 0:
+            index -= 1
+        try:
+            last_yield = self.price_history[-1, index] / self.price_history[-2, index]
+        except IndexError:
+            return None, None
 
-    def get_relevant_dates(self, time_length, end_time):
-        """return a list of pers of lists dates in string for the relevent time
-            example: [[2020-3-10, 2020-3-5], [2019-3-10, 2019-3-5], [2018-3-10, 2018-3-5], [2017-3-10, 2017-3-5], [2016-3-10, 2016-3-5]]
-         """
-        if len(end_time) == 0:
-            end_time = time.localtime(time.time())[:3]
-        add = 5
-        if end_time[2] > 24:
-            end_time = (end_time[0], end_time[1], end_time[2] - 5)
-        res = []
-        for i in range(time_length + 1):  # the +1 is for the loop to incloud today end exactly time_length since the end date
-            res.append([(str(end_time[0] - i) + "-" + str(end_time[1]) + "-" + str(end_time[2])),
-                        (str(end_time[0] - i) + "-" + str(end_time[1]) + "-" + str(end_time[2] + add))])
+        if len(self.price_history)>=6:
+            yield_5y = self.price_history[-1, index] / self.price_history[-6, index]
+            return last_yield, yield_5y
+        else:
+            # in case the prudact is less then 5 years we are going to estimate his yield
+            # we compare it's yield to the QQQ and use this ratio to estimate the yield in the missing years
+            benchmark = calculation.get_banchmark_yield()
+            my_yield = self.price_history[-1, 0] / self.price_history[0, 0]
+            start = len(self.price_history)
+            bench_yield = 1
+            for i in benchmark[start:]:
+                bench_yield = bench_yield*i
+            ratio = my_yield/bench_yield
+            estimate_yield = my_yield
+            for i in benchmark[:-start]:
+                estimate_yield = estimate_yield*i*ratio
 
-        return res
+            return last_yield, estimate_yield
 
-fp = FinanceProduct("MA")
 
-#info = fp.create_all_symbols()
-#fp.get_stocks_symbols_to_xlsx("", info)
+
+
+if __name__ == '__main__':
+    a = FinanceProduct("qqq")
+    a.show_precise_graph()
+    pass
