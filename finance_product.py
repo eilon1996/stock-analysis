@@ -38,7 +38,7 @@ class FinanceProduct:
         basic_data = self.get_basic_data()
         self.avg_volume = basic_data["avg_volume"]
         self.pe_ratio = basic_data["pe_ratio"]
-        if basic_data["expense_ratio"] == -1: # its a stock not etf
+        if basic_data["expense_ratio"] == -1: # thats mean its a stock not etf
             self.product = stock.Stock(symbol, basic_data["market_cap"])
         else:
             self.product = etf.Etf(symbol, basic_data["expense_ratio"])
@@ -134,7 +134,6 @@ class FinanceProduct:
 
 
     # also detarmain if its a stock or etf
-    # TODO: extract the stock name
     def get_basic_data(self):
         """"get the stock name and return avg' volume, PE ratio, yearly dividend"""
         res = {}
@@ -214,8 +213,7 @@ class FinanceProduct:
         # create a full rectangle array by puting 0 in the missing parts
         return np.array(list(itertools.zip_longest(*div_per_year, fillvalue=0))).T
 
-    # TODO: return price for every qourter (per year and not just 4 month earlier
-    # TODO: handling diffrent ways for geting time
+
     def get_stock_price_data_and_age(self, time_length=5, end_time=[]):
         """end time need to be list or tuple for instence [2018,5,28]
         the def return a list of the value of the stock in 1 year gaps
@@ -251,11 +249,15 @@ class FinanceProduct:
             start_date, end_date = calculation.get_relevant_dates(length, start_date,  end_date)
             df = dr.data.get_data_yahoo(self.symbol, start=start_date, end=end_date)
 
+        # plt is the import of matplotlib
+        # plot_date is a method that show the date as the X axe
         plt.plot_date(df.index, df.Close, '-')
 
         plt.xlabel('Date')
         plt.ylabel('Price')
         plt.title(self.symbol)
+        # legend more useful when you have several graphs togather
+        # it write on each graph line what it represent
         plt.legend()
         plt.show()
 
@@ -299,4 +301,4 @@ class FinanceProduct:
 
 
 if __name__ == '__main__':
-    a = FinanceProduct("MSFT")
+    pass

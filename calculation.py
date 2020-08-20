@@ -1,6 +1,9 @@
 import numpy as np
 import time
 
+
+#this page helping us to re-use functions and variables without writing them more then once
+
 product_type = ["stock", "etf"]
 
 prefix = ["K", "M", "B", "T", "k", "m", "b", "t"]

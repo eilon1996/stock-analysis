@@ -10,6 +10,7 @@ import numpy as np
 class DatabaseHandler:
 
     def __init__(self):
+        ####Isreal you will need to set the details that match your sql user####
         self.mydb = mysql.connector.connect(
             host="localhost",
             user="eilon",
@@ -41,13 +42,14 @@ class DatabaseHandler:
         except mysql.connector.errors.ProgrammingError:
             print("Table 'products' already exists")
 
-    
     # should match the update def, but maybe the first def will do
-    def extract_values2(self, product):
+
+    def extract_values(self, product):
         values = [product.symbol, product.full_name, " ", str(product.price),
                   str(calculation.two_point_percentage(product.yield_5y)),
                   str(calculation.two_point_percentage(product.yield_1y)),
-                  str(calculation.two_point_percentage(product.yearly_dividend_per_share[0])), 
+                  str(calculation.two_point_percentage(
+                      product.yearly_dividend_per_share[0])),
                   str(product.pe_ratio)]
         if type(product.product) == stock.Stock:
             values[2] = "0"
@@ -55,12 +57,13 @@ class DatabaseHandler:
                            str(product.product.market_cap), str(product.product.main_sector)])
         else:
             values[2] = "1"
-            values.extend(["-1.0", "-1.0", "-1.0", str(product.product.main_sector)])
+            values.extend(
+                ["-1.0", "-1.0", "-1.0", str(product.product.main_sector)])
 
-        values.extend([str(self.get_borsa_index(product.borsa)), str(product.avg_volume), str(product.analyst_score)])
+        values.extend([str(self.get_borsa_index(product.borsa)), str(
+            product.avg_volume), str(product.analyst_score)])
 
         return values
-
 
     def is_exist(self, product: finance_product, symbol: str = None):
         if symbol is None:
@@ -77,7 +80,7 @@ class DatabaseHandler:
               "profit, debt_percentage, market_cap, main_sector, borsa, avg_volume, analyst_score) " \
               "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
 
-        values = self.extract_values2(product)
+        values = self.extract_values(product)
         self.mycursor.execute(sql, values)
         self.mydb.commit()
         """
@@ -96,23 +99,15 @@ class DatabaseHandler:
         self.mycursor.execute(
             "ALTER TABLE products ADD COLUMN " + column_name + col_type)
 
-
     def update_row(self, product):
-        values = self.extract_values2(product)
+        values = self.extract_values(product)
 
-        sql = "UPDATE products " \
-              "SET name = '" + values[1] + "', type = '" + values[2] + "', price = " + values[3] + ", yield_y5 = " + \
-              values[4] + ", yield_1y = " + values[5] + ", dividend = " +values[6]+ ", pe_ratio = " + values[7] + ", " \
-              "profit = " + values[8] + ", debt_percentage = " + values[9] + ", market_cap = " + values[10] + ", main_sector = '" + values[
-                  11] + "', borsa = '" + values[12] + "', avg_volume = " + values[13] + ", analyst_score = " + values[
-                  14] + " WHERE symbol = '" + str(values[0]) + "'"
+        sql = "UPDATE products (name, type, price, yield_y5, yield_1y, dividend, pe_ratio, " \
+            "profit, debt_percentage, market_cap, main_sector, borsa, avg_volume, analyst_score) " \
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
+            "WHERE symbol = '" + str(values[0]) + "'"
 
-        sql2 = "UPDATE products (name, type, price, yield_y5, yield_1y, dividend, pe_ratio, " \
-              "profit, debt_percentage, market_cap, main_sector, borsa, avg_volume, analyst_score) " \
-              "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
-                  "WHERE symbol = '" + str(values[0]) + "'"
-
-        self.mycursor.execute(sql2, values[1:])
+        self.mycursor.execute(sql, values[1:])
         self.mydb.commit()
 
         # print(self.mycursor.rowcount, "record(s) affected")
@@ -121,7 +116,7 @@ class DatabaseHandler:
         res = np.vstack((calculation.headlines, data))
         print(res)
 
-    def get_all_products(self, limit=None, print = False):
+    def get_all_products(self, limit=None, print=False):
 
         sql = "SELECT * FROM products"
         if limit is not None:
@@ -133,8 +128,8 @@ class DatabaseHandler:
 
         return data
 
-        #self.show_data(myresult)
-        #for x in myresult:
+        # self.show_data(myresult)
+        # for x in myresult:
         #    print(x)
 
     def get_product_by_numeric_param(self, param, min=None, max=None, limit=None):
@@ -198,11 +193,12 @@ class DatabaseHandler:
 
     def create_borsas(self):
         # try:
-        self.mycursor.execute("CREATE TABLE borsas (id INT NOT NULL AUTO_INCREMENT, borsa_name VARCHAR(255), PRIMARY KEY (id))")
+        self.mycursor.execute(
+            "CREATE TABLE borsas (id INT NOT NULL AUTO_INCREMENT, borsa_name VARCHAR(255), PRIMARY KEY (id))")
         return True
         # except mysql.connector.errors.ProgrammingError:
         #print("Table 'borsas' already exists")
-        #return False
+        # return False
 
     def get_borsa_index(self, borsa_name):
         try:
@@ -215,11 +211,11 @@ class DatabaseHandler:
             if self.create_borsas():
                 self.get_borsa_index(borsa_name)
             else:
-                print("cant add new borsa name \n "+ str(e))
+                print("cant add new borsa name \n " + str(e))
                 raise Exception
 
         if res is None or len(res) == 0:
-            #if the borsa name not found we add it to the database and call the function again
+            # if the borsa name not found we add it to the database and call the function again
             sql = "INSERT INTO borsas (borsa_name) VALUES (%s)"
             self.mycursor.execute(sql, (borsa_name,))
             self.mydb.commit()
@@ -231,10 +227,9 @@ class DatabaseHandler:
         sql = "SELECT * FROM borsas WHERE id = %s"
         self.mycursor.execute(sql, (index,))
         res = self.mycursor.fetchone()[1]
-            
-
 
     # not relevante yet
+
     def show_tables_names(self):
         self.mycursor.execute("SHOW TABLES")
         for x in self.mycursor:
@@ -248,7 +243,8 @@ class DatabaseHandler:
             if "comments" == x:
                 table_exist = True
         if not table_exist:
-            self.mycursor.execute("CREATE TABLE comments (id INT PRIMARY KEY, comment VARCHAR(255))")
+            self.mycursor.execute(
+                "CREATE TABLE comments (id INT PRIMARY KEY, comment VARCHAR(255))")
 
         sql = "INSERT INTO comments (comment) VALUES (%s)"
         self.mycursor.execute(sql, comment)
@@ -265,7 +261,6 @@ class DatabaseHandler:
         # incase of "errors.InternalError("Unread result found")" will raise
         # we use this except
 
-
         # the correct way to do it is by using
         # cursor = cnx.cursor(buffered=True)
         # but this is relevant only when using
@@ -277,14 +272,14 @@ class DatabaseHandler:
         #         database='self.mydb')
         # crsr = cnxn.cursor()
 
-
-
     # you cant use the word "match" for a table name
     # will raise: mysql.connector.errors.ProgrammingError: 1064 (42000): You have an error in your SQL syntax;
     #   check the manual that corresponds to your MySQL server version for the right syntax to use near...
 
 
 if __name__ == '__main__':
+
+    #for self check
     db = DatabaseHandler()
     db.delete_products()
     db.create_table()

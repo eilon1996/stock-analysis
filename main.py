@@ -21,6 +21,7 @@ import finance_product as fp
 import database_handler
 import calculation
 
+# this is where the user start, mainmly the interface method is in use 
 
 class Partfolio:
 
@@ -53,6 +54,7 @@ class Partfolio:
         
         return a1   # temparery 
 
+        # TODO: compress to one nested loop
         # 2 letter
         b = np.full((26, 26), "AA")
         b1 = []
@@ -113,7 +115,7 @@ class Partfolio:
             worksheet.write((index) % 100, 2 * index // 100, value[0])
             worksheet.write((index) % 100, 2 * index // 100 + 1, value[1])
 
-            
+    #not finnished     
     def show_product_data(self, symbols):
 
         col_label = ["yield", "dividend", "dividend in %"]
@@ -174,6 +176,7 @@ class Partfolio:
 
         plt.show()
 
+    #only print the data to the console
     def show_data(self, show=True):
         fig, ax = plt.subplots()
         # hide axes
@@ -198,6 +201,7 @@ class Partfolio:
             plt.show()
         else:
             return table
+
 
     def compare(self, symbols):
         if len(symbols) > 5:
@@ -287,7 +291,7 @@ class Partfolio:
     def interface(self):
         while True:
             print("hi, what action wuold you like to do now?\n"
-                  "check - to check a certain stock or etf\n"
+                  "check - to check a certain stock or etf (not working yet)\n"
                   "compare - to compare several stocks & etfs\n"
                   "exit - to exit this program")
             user_input = input()
