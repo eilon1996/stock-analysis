@@ -1,1 +1,0 @@
-    print(calculation.prefix)
