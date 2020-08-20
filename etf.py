@@ -25,10 +25,10 @@ class Etf:
         data = self.get_holdings()
         self.top_holdings = data["top holdings"]
         self.stocks_share = data["stocks share"]
-        self.bond_share = data["bond share"]
+        self.stock_sectors = data["stock sectors"]
+        self.bonds_share = data["bond share"]
         self.bond_sectors = data["bond sectors"]
-        self.sectors_share = data["stock sectors"]
-        self.top_sector = "-"  #TODO
+        self.main_sector = self.get_main_sector()  #TODO combine 2 sectors
 
     def get_etf_profile(self):  # TODO everything
         """"get the stock name and return 2 diamention list with the last 4 years data"""
@@ -71,3 +71,11 @@ class Etf:
             for x in top_holdings_data]
 
         return res
+
+    def get_main_sector(self):
+        if self.bonds_share > self.stocks_share:
+            # for easier saving and navigation in the sectors, we index the bonds after the stocks and not in parallel 
+            # for better understanding look at all_sectors in calculation
+            return self.bond_sectors.index(max(self.bond_sectors)) + len(calculation.stock_sectors)
+        return self.stock_sectors.index(max(self.stock_sectors))
+            

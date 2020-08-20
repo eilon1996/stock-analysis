@@ -1,4 +1,5 @@
 import mysql.connector
+import mysql
 import finance_product
 import stock
 import etf
@@ -11,8 +12,8 @@ class DatabaseHandler:
     def __init__(self):
         self.mydb = mysql.connector.connect(
             host="localhost",
-            user="root",
-            password="e12QWaszx",
+            user="eilon",
+            password="12qwaszx",
         )
 
         # neceserry only for the first time
@@ -25,57 +26,41 @@ class DatabaseHandler:
             # in case database is already exist
             self.mydb = mysql.connector.connect(
                 host="localhost",
-                user="root",
-                password="e12QWaszx",
+                user="eilon",
+                password="12qwaszx",
                 database="mydatabase")
         self.mycursor = self.mydb.cursor()
-
-        self.headlines = np.asarray(["symbol", "name", "type", "price", "5 years yield", "one years yield", "pe ratio",
-              "profitability", "debt/assents", "market_cap", "top_sector", "country", "average volume", "analyst score"])
 
     def create_table(self):
         try:
             self.mycursor.execute(
                 "CREATE TABLE products (symbol VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255),"
-                " price FLOAT, yield_y5 FLOAT, yield_1y FLOAT, pe_ratio FLOAT ,"
-                " profit FLOAT, debt_percentage FLOAT, market_cap VARCHAR(255), "
-                "top_sector VARCHAR(255), avg_volume INT, country VARCHAR(255), analyst_score INT)")
+                " price FLOAT, yield_y5 FLOAT, yield_1y FLOAT, dividend FLOAT, pe_ratio FLOAT ,"
+                " profit FLOAT, debt_percentage FLOAT, market_cap BIGINT, "
+                "main_sector INT, avg_volume INT, borsa INT, analyst_score INT)")
         except mysql.connector.errors.ProgrammingError:
             print("Table 'products' already exists")
 
-    def extract_values(self, product):
-        values = [product.symbol, product.full_name, " ", product.price,
-                  calculation.two_point_percentage(product.yield_5y),
-                  calculation.two_point_percentage(product.yield_1y), product.pe_ratio]
-        if type(product.product) == stock.Stock:
-            values[2] = "stock"
-            values.extend([product.product.profitability, product.product.debt_percentage, product.product.market_cap,
-                           "-"])
-        else:
-            values[2] = "etf"
-            values.extend([-1.0, -1.0, -1.0, product.product.top_sector])
-
-        values.extend([product.country, product.avg_volume, product.analyst_score])
-
-        return values
-
+    
     # should match the update def, but maybe the first def will do
     def extract_values2(self, product):
         values = [product.symbol, product.full_name, " ", str(product.price),
                   str(calculation.two_point_percentage(product.yield_5y)),
-                  str(calculation.two_point_percentage(product.yield_1y)), str(product.pe_ratio)]
+                  str(calculation.two_point_percentage(product.yield_1y)),
+                  str(calculation.two_point_percentage(product.yearly_dividend_per_share[0])), 
+                  str(product.pe_ratio)]
         if type(product.product) == stock.Stock:
-            values[2] = "stock"
+            values[2] = "0"
             values.extend([str(product.product.profitability), str(product.product.debt_percentage),
-                           str(product.product.market_cap),
-                           "-"])
+                           str(product.product.market_cap), str(product.product.main_sector)])
         else:
-            values[2] = "etf"
-            values.extend(["-1.0", "-1.0", "-1.0", product.product.top_sector])
+            values[2] = "1"
+            values.extend(["-1.0", "-1.0", "-1.0", str(product.product.main_sector)])
 
-        values.extend([product.country, str(product.avg_volume), str(product.analyst_score)])
+        values.extend([str(self.get_borsa_index(product.borsa)), str(product.avg_volume), str(product.analyst_score)])
 
         return values
+
 
     def is_exist(self, product: finance_product, symbol: str = None):
         if symbol is None:
@@ -83,65 +68,70 @@ class DatabaseHandler:
         res = self.get_product_by_symbol(symbol)
         return res is not None and len(res) > 0
 
-    def insert_product(self, product):
-
+    def add_product(self, product):
         if self.is_exist(product):
+            self.update_row(product)
             return
 
-        sql = "INSERT INTO products (symbol, name, type, price, yield_y5, yield_1y, pe_ratio, " \
-              "profit, debt_percentage, market_cap, top_sector, country, avg_volume, analyst_score) " \
-              "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        sql = "INSERT INTO products (symbol, name, type, price, yield_y5, yield_1y, dividend, pe_ratio, " \
+              "profit, debt_percentage, market_cap, main_sector, borsa, avg_volume, analyst_score) " \
+              "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
 
-        values = self.extract_values(product)
+        values = self.extract_values2(product)
+        self.mycursor.execute(sql, values)
+        self.mydb.commit()
+        """
         try:
             self.mycursor.execute(sql, values)
             self.mydb.commit()
             # mysql.connector.errors.IntegrityError
-        except:
-            self.update_row(product)
-
+        except Exception as e:
+            print("database_handler line 101: "+ str(e))
+            raise Exception
+        """
         # if we want to insert several rows together mycursor.executemany(sql, values.p)
 
-    def add_column(mycursor, tableName, column_name="", col_type=""):
-        # TODO set the col_type
+    def add_column(self, product, column_name, col_type=""):
 
         self.mycursor.execute(
-            "ALTER TABLE " + tableName + " ADD COLUMN " + column_name + " INT AUTO_INCREMENT PRIMARY KEY")
+            "ALTER TABLE products ADD COLUMN " + column_name + col_type)
 
-        sql = "UPDATE product " \
-              "SET (name, type, price, yield_y5, yield_1y, pe_ratio, " \
-              "profit, debt_percentage, market_cap, top_sector, country, avg_volume, analyst_score) = " \
-              "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) " \
-              "WHERE symbol = " + product.symbol
 
     def update_row(self, product):
         values = self.extract_values2(product)
 
         sql = "UPDATE products " \
               "SET name = '" + values[1] + "', type = '" + values[2] + "', price = " + values[3] + ", yield_y5 = " + \
-              values[4] + ", yield_1y = " + values[5] + ", pe_ratio = " + values[6] + ", " \
-                                                                                      "profit = " + values[
-                  7] + ", debt_percentage = " + values[8] + ", market_cap = " + values[9] + ", top_sector = '" + values[
-                  10] + "', country = '" + values[11] + "', avg_volume = " + values[12] + ", analyst_score = " + values[
-                  13] + "" \
-                        " WHERE symbol = '" + str(values[0]) + "'"
+              values[4] + ", yield_1y = " + values[5] + ", dividend = " +values[6]+ ", pe_ratio = " + values[7] + ", " \
+              "profit = " + values[8] + ", debt_percentage = " + values[9] + ", market_cap = " + values[10] + ", main_sector = '" + values[
+                  11] + "', borsa = '" + values[12] + "', avg_volume = " + values[13] + ", analyst_score = " + values[
+                  14] + " WHERE symbol = '" + str(values[0]) + "'"
 
-        self.mycursor.execute(sql)
+        sql2 = "UPDATE products (name, type, price, yield_y5, yield_1y, dividend, pe_ratio, " \
+              "profit, debt_percentage, market_cap, main_sector, borsa, avg_volume, analyst_score) " \
+              "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
+                  "WHERE symbol = '" + str(values[0]) + "'"
+
+        self.mycursor.execute(sql2, values[1:])
         self.mydb.commit()
 
         # print(self.mycursor.rowcount, "record(s) affected")
 
     def show_data(self, data):
-        res = np.vstack((self.headlines, data))
+        res = np.vstack((calculation.headlines, data))
         print(res)
 
-    def get_all_products(self, limit=None):
+    def get_all_products(self, limit=None, print = False):
 
         sql = "SELECT * FROM products"
         if limit is not None:
             sql += " LIMIT " + limit
         self.mycursor.execute(sql)
-        return self.mycursor.fetchall()
+        data = self.mycursor.fetchall()
+        if print:
+            self.show_data(data)
+
+        return data
 
         #self.show_data(myresult)
         #for x in myresult:
@@ -190,7 +180,7 @@ class DatabaseHandler:
         # using changing values
 
     def sort_table_by(self, column_name, reverse=False):
-        sql = "SELECT * FROM tablename ORDER BY " + column_name
+        sql = "SELECT * FROM products ORDER BY " + column_name
         if reverse:
             sql += " DESC"
         self.mycursor.execute(sql)
@@ -198,34 +188,63 @@ class DatabaseHandler:
         # adding "DESC" at the end will sort in reverse
         # sql = "SELECT * FROM customers ORDER BY name DESC"
 
-    def delete(self, table_name="", where=""):
-        if table_name == "":
-            table_name = "products"
+    def delete_products(self, where=""):
         if where == "":
-            sql = "DELETE FROM " + table_name
+            sql = "DROP TABLE IF EXISTS products"
         else:
-            sql = "DELETE FROM products WHERE address = 'Mountain 21'"
+            sql = "DELETE FROM products WHERE "+where
         self.mycursor.execute(sql)
         self.mydb.commit()
 
-    def delete_table(self):
-        sql = "DROP TABLE IF EXISTS products"
-        self.mycursor.execute(sql)
+    def create_borsas(self):
+        # try:
+        self.mycursor.execute("CREATE TABLE borsas (id INT NOT NULL AUTO_INCREMENT, borsa_name VARCHAR(255), PRIMARY KEY (id))")
+        return True
+        # except mysql.connector.errors.ProgrammingError:
+        #print("Table 'borsas' already exists")
+        #return False
 
-        # if we know for sure that the table exist we can use:
-        # sql = "DROP TABLE "+table_name
+    def get_borsa_index(self, borsa_name):
+        try:
+            borsa_name = borsa_name.lower()
+            sql = "SELECT * FROM borsas WHERE borsa_name = %s"
+            self.mycursor.execute(sql, (borsa_name,))
+            res = self.mycursor.fetchone()
+        except Exception as e:
+            # if the table doesnt exist create it and start again, else raise a problem
+            if self.create_borsas():
+                self.get_borsa_index(borsa_name)
+            else:
+                print("cant add new borsa name \n "+ str(e))
+                raise Exception
+
+        if res is None or len(res) == 0:
+            #if the borsa name not found we add it to the database and call the function again
+            sql = "INSERT INTO borsas (borsa_name) VALUES (%s)"
+            self.mycursor.execute(sql, (borsa_name,))
+            self.mydb.commit()
+            return self.get_borsa_index(borsa_name)
+        else:
+            return res[0]
+
+    def get_borsa_name(self, index):
+        sql = "SELECT * FROM borsas WHERE id = %s"
+        self.mycursor.execute(sql, (index,))
+        res = self.mycursor.fetchone()[1]
+            
+
 
     # not relevante yet
     def show_tables_names(self):
         self.mycursor.execute("SHOW TABLES")
-        for x in mycursor:
+        for x in self.mycursor:
             print(x)
 
     def add_comment(self, comment):
 
         self.mycursor.execute("SHOW TABLES")
         table_exist = False
-        for x in mycursor:
+        for x in self.mycursor:
             if "comments" == x:
                 table_exist = True
         if not table_exist:
@@ -235,21 +254,17 @@ class DatabaseHandler:
         self.mycursor.execute(sql, comment)
         self.mydb.commit()
 
-
     def select_column(self):
-        try:
-            mycursor.execute("SELECT name FROM products")
-            # to fetch only the first row and not all column we use mycursor.fetchone()
-            myresult = mycursor.fetchall()
+        self.mycursor.execute("SELECT name FROM products")
+        # to fetch only the first row and not all column we use mycursor.fetchone()
+        myresult = self.mycursor.fetchall()
 
-            for x in myresult:
-                print(x)
+        for x in myresult:
+            print(x)
 
         # incase of "errors.InternalError("Unread result found")" will raise
         # we use this except
-        except mysql.errors.InternalError:
-            self.mydb, mycursor = restore_data_base()
-            select_all(mycursor)
+
 
         # the correct way to do it is by using
         # cursor = cnx.cursor(buffered=True)
@@ -271,9 +286,13 @@ class DatabaseHandler:
 
 if __name__ == '__main__':
     db = DatabaseHandler()
-    db.delete_table()
+    db.delete_products()
     db.create_table()
-    db.insert_product(finance_product.FinanceProduct("MSFT"))
-    db.insert_product(finance_product.FinanceProduct("QLD"))
-    db.select_all()
+    db.add_product(finance_product.FinanceProduct("msft"))
+    print("msft done")
+    db.add_product(finance_product.FinanceProduct("qqq"))
+    print("qqq done")
+    db.add_product(finance_product.FinanceProduct("ma"))
+    print("ma done")
+    data = db.get_all_products(print=True)
     print("done")

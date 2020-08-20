@@ -1,49 +1,83 @@
 import numpy as np
 import time
 
+product_type = ["stock", "etf"]
+
+prefix = ["K", "M", "B", "T", "k", "m", "b", "t"]
+
+borsas_index = []
+
+stock_sectors = ["Basic Materials", "CONSUMER_CYCLICAL", "Financial Services", "Realestate", "Consumer Defensive",
+                "Healthcare", "Utilities", "Communication Services", "Energy", "Industrials", "Technology"]
+bond_sectors = ["US Government", "AAA", "AA", "A", "BBB", "BB", "B", "Below B", "others"]
+all_sectors = stock_sectors + bond_sectors
+
+headlines = np.asarray(["symbol", "name", "type", "price", "5 years yield", "one years yield","dividend in %", "pe ratio",
+            "profitability", "debt/assents", "market cap", "main sector", "borsa", "average volume", "analyst score"])
+
 # @staticmethod # consider adding to other methods
 def convert_string_to_number(number):
-    """"for dealing with representing that inclouds ','  like  10,000
+    """"for dealing with representing like  -15,010.3M
             relevent for extarcting data from HTML"""
     try:
         minus = False
         if number[0] == "-":
             minus = True
             number = number[1:]
+        
+        # if the number have one of those prefix we will turn it to the full number
+        try:
+            multiply = prefix.index(number[-1])
+            if multiply != -1:
+                multiply = 10**((multiply%4+1)*3) 
+                number = number[:-1]
+        except: multiply = 1
 
         divided_number = number.split(",")
         res = 0
         for i in divided_number:
             res = res * 1000 + float(i)
+
         if minus: res = -1 * res
-        return res
+    
+        return res*multiply
     except ValueError:
         return -1
 
-def get_relevant_dates(time_length, end_time):
+def get_relevant_dates(time_length=5, start_time=None, end_time=None):
     """
-        :param end_time: tuple or list in the form (d,m,yyyy)
         :param time_length: int
-        return a list with the end time given or current date if not,
-         and start date is the 1-1-YYYY at the end tea minus the time_length
-         example: [1-1-2015, 14-5-2020]
+        :param start_time: tuple or list in the form (d,m,yyyy)
+        :param end_time: tuple or list in the form (d,m,yyyy)
+         the function complite the missing params and
+        :return start time & end time in form of 'd-m-yyyy' 
      """
-    if len(end_time) == 0:
-        end_time = time.localtime(time.time())[:3]
+    
+    if end_time is None:
+        end_time = time.localtime()[:3][::-1]
+    if start_time is None:
+        start_time = end_time.copy()
+        start_time[2] = start_time[2]-time_length
 
-    start_time = (str(end_time[0]-time_length)+"-1-1")
-    end_time = str(end_time[0])+"-"+str(end_time[1])+"-"+str(end_time[2])
-
-    return [start_time, end_time]
-
-
-def get_bond_sectors():
-    return ["US Government", "AAA", "AA", "A", "BBB", "BB", "B", "Below B", "Others"]
+    start_time = "-".join([str(t) for t in start_time])
+    end_time = "-".join([str(t) for t in end_time])
+    return start_time, end_time
 
 
-def get_stock_sectors():
-    return ["Basic Materials", "CONSUMER_CYCLICAL", "Financial Services", "Realestate", "Consumer Defensive",
-            "Healthcare", "Utilities", "Communication Services", "Energy", "Industrials", "Technology"]
+
+def get_sectors_name(sector_index):
+    try:
+        return all_sectors[sector_index]
+    except Exception:
+        return "index error"
+
+def get_sectors_index(sector_name):
+    try:
+        return all_sectors.index(sector_name)
+    except Exception:
+        return -1 
+
+
 
 def get_benchmark_yield():
     "return QQQ 5 years detailed yield"

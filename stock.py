@@ -21,7 +21,7 @@ class Stock:
 
     def __init__(self, symbol, market_cap):
         self.symbol = symbol
-        self.market_cap = (market_cap) # getting a score like 50.3B
+        self.market_cap = int(market_cap)
         data = self.get_revenue_n_net_income()
         self.revenue = data[0]#is relevant?
         self.income = data[1]#is relevant?
@@ -32,6 +32,7 @@ class Stock:
         self.debt = data[1]#is relevant?
         self.debt_percentage = calculation.two_point_percentage(self.debt[-1]/self.assents[-1])
         self.free_cash = self.get_free_cash()#is relevant?
+        self.main_sector = self.get_main_sector()
 
     def get_revenue_n_net_income(self):
         """"get the stock name and return 2 diamention list with the last 4 years data"""
@@ -72,4 +73,11 @@ class Stock:
         free_cash_value = [calculation.convert_string_to_number(x.text) for x in data]
         return free_cash_value
 
-
+    def get_main_sector(self):
+        
+        url = "https://finance.yahoo.com/quote/"+self.symbol+"/profile?p="+self.symbol
+        html_content = requests.get(url).text           # Make a GET request to fetch the raw HTML content
+        soup = BeautifulSoup(html_content, "lxml")      # Parse the html content
+        data = soup.find("div", attrs={"class": "qsp-2col-profile Pt(10px) smartphone_Pt(20px) Lh(1.7)"})
+        sector = data.contents[1].contents[1].contents[4].text
+        return calculation.get_sectors_index(sector)
