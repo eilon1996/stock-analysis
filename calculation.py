@@ -15,8 +15,25 @@ stock_sectors = ["Basic Materials", "CONSUMER_CYCLICAL", "Financial Services", "
 bond_sectors = ["US Government", "AAA", "AA", "A", "BBB", "BB", "B", "Below B", "others"]
 all_sectors = stock_sectors + bond_sectors
 
-headlines = np.asarray(["symbol", "name", "type", "price", "5 years yield", "one years yield","dividend in %", "pe ratio",
-            "profitability", "debt/assents", "market cap", "main sector", "borsa", "average volume", "analyst score"])
+headlines = np.asarray(["symbol", "name", "price", "currency", "type", "main sector", "industry", "leveraged", "5 years yield", "one year yield","dividend in %", "market_cap",
+            "profitability", "debt/assents"])
+
+currency = ["USD", ]
+
+
+def sql_to_show(data):
+    return [data[0],
+            data[1],
+            data[2],
+            data[3],
+            ("Stock" if data[4] == 0 else "ETF"),
+            get_sectors_name(data[5]),
+            data[6],
+            ("Leveraged" if data[7] else "Not Leveraged"),
+            two_point_percentage(data[8]),
+            two_point_percentage(data[9]),
+            two_point_percentage(data[10]),
+            add_prefix(data[11]) ]
 
 # @staticmethod # consider adding to other methods
 def convert_string_to_number(number):
@@ -47,6 +64,25 @@ def convert_string_to_number(number):
     except ValueError:
         return -1
 
+def add_prefix(number):
+    
+    multiply = -1
+    for i in range(4):
+        if(number >= 1000):
+            number = number/1000
+            multiply += 1
+        else: break
+
+    if number >= 100:
+        number = (number//10)*10
+    elif number >= 10:
+        number = int(round(number))
+    else:
+        number = round(number*10)//10
+
+    return str(number) + prefix[multiply]
+
+   
 def get_relevant_dates(time_length=5, start_time=None, end_time=None):
     """
         :param time_length: int
@@ -74,7 +110,7 @@ def get_sectors_name(sector_index):
     except Exception:
         return "index error"
 
-def get_sectors_index(sector_name):
+def get_sector_index(sector_name):
     try:
         return all_sectors.index(sector_name)
     except Exception:
@@ -86,6 +122,8 @@ def get_benchmark_yield():
     "return QQQ 5 years detailed yield"
     return [1.1003496595751494, 1.0666549243004677, 1.302516102588014, 0.937726452964105, 1.4288811421353493]
 
+def get_benchmark_4y_yield():
+    return np.prod(get_benchmark_yield()[1:])
 
 def get_benchmark_dividend():
     "return QQQ 5 years devidends"
@@ -93,9 +131,24 @@ def get_benchmark_dividend():
 
 def two_point_percentage(number):
     try:
-        return float(np.round(number*10000)/100)
-    except:
-        print(number)
+        if hasattr(number, "__len__"):
+            #num is a list or a array
+            check = number[0]
+        else:
+            check = number
 
-if __name__=="main":
+        if check>1:
+            return np.round(number, decimals=2)*100
+        if check>0.1:
+            return np.round(number, decimals=3)*100
+        if check>0.01:
+            return np.round(number, decimals=4)*100
+
+    except Exception as e:
+        print("calc.twoPoint.num: "+str(number)+"\n"+str(e))
+
+
+
+
+if __name__ == '__main__':
     pass

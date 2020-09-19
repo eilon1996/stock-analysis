@@ -1,22 +1,14 @@
-from pandas.io.html import read_html
-from bs4 import BeautifulSoup
-from lxml import html
-from pandas.util.testing import assert_frame_equal
-import lxml
-import matplotlib.pyplot as plt
+
 import time
+
+import openpyxl
 import pandas as pd
-import requests
-import csv
 import numpy as np
 import pandas_datareader as dr
 import xlsxwriter
 import matplotlib.pyplot as plt
-import matplotlib.figure as figure
 import platform
 
-import stock
-import etf
 import finance_product as fp
 import database_handler
 import calculation
@@ -33,7 +25,8 @@ class Partfolio:
     def save_product(self, symbol):
         try:
             product = fp.FinanceProduct(symbol.upper())
-            self.mydb.add_product(product)
+            product.save_as_xlsx()
+           # self.mydb.add_product(product)
         except:
             pass
 
@@ -48,17 +41,17 @@ class Partfolio:
         a1 = []
         for i in range(26):
             symbol = chr(65 + i)
+            print(symbol)
             a.append([symbol])
             self.save_product(symbol)
         print("1 letter, ", time.time() - s)
-        
-        return a1   # temparery 
 
         # TODO: compress to one nested loop
         # 2 letter
         b = np.full((26, 26), "AA")
         b1 = []
         for j in range(26):
+            print("loop 2, start letter is " +str(a[j][0]))
             b1.append([])
             for i in range(26):
                 symbol = str(a[j][0] + a[i][0])
@@ -66,6 +59,8 @@ class Partfolio:
                 self.save_product(symbol)
 
         print("2 letter, ", time.time() - s)
+
+        return a1, b1
 
         # 3 letter
         c = np.full((26, 26 * 26), "AAA")
@@ -176,7 +171,7 @@ class Partfolio:
 
         plt.show()
 
-    #only print the data to the console
+
     def show_data(self, show=True):
         fig, ax = plt.subplots()
         # hide axes
@@ -190,6 +185,24 @@ class Partfolio:
                 if row[1][index] == " ":
                     row_lable.append(row[1][:index] + "\n" + row[1][index + 1:])
                     break
+            if row[2] == 1: # == etf
+                row[2] = "etf"
+                row[8:10]= "-"
+               # row[8]=row[9]= row[10] = "-"
+            else:
+                row[2] = "stock"
+                row[8] = str(row[8]) + "%"
+                row[9] = str(row[9]) + "%"
+        
+            row[4] = str(row[4]) + "%"
+            row[5] = str(row[5]) + "%"
+            row[6] = str(row[6]) + "%"
+            row[7] = str(row[7]) + "%"
+
+        
+        # transforming market cap to readble view with prefix of K, M, B, T
+        row[10] = calculation.add_prefix(row[10])
+        row[11] = calculation.get_sectors_name(row[11])
 
         data = data[:, 2:]
         df = pd.DataFrame(data, columns=calculation.headlines[2:])
@@ -211,6 +224,8 @@ class Partfolio:
         row_lable = []
         print("comparing...")
         for s in symbols:
+            time_start = time.time()
+            print(s+" start")
             tmp = self.mydb.get_product_by_symbol(s.upper())
             if tmp is not None and len(tmp) > 0:
                 row = list(tmp)
@@ -230,20 +245,11 @@ class Partfolio:
                     break
 
             # transforming market cap to readble view with prefix of K, M, B, T
-            market_cap = row [10] # once we add dividends its need to be 10
-            multiply = -1
-            for i in range(4):
-                #if market_cap%1000 == 0:
-                if market_cap>10000:
-                    multiply += 1 
-                    market_cap = market_cap/1000
-                else:
-                    break
-            if multiply >-1:
-                row[10] = str(market_cap)+str(calculation.prefix[multiply])
+            row[10] = calculation.add_prefix(row[10])
 
             
             data.append(row[2:])
+            print(s+" done in: "+ (time.time()- time_start))
 
         fig, ax = plt.subplots(2, 1)
         # hide axes
@@ -252,16 +258,14 @@ class Partfolio:
         # full screen
         mng = plt.get_current_fig_manager()
         print("I'm running on "+ platform.system())
-        if(platform.system() == "Linux"):
-            try:
-                mng.full_screen_toggle()
-                print("the first worked")
-            except Exception:
-                mng.window.showMaximized(True)
-                print("the second worked")
-        else:
-            #for windows
-            mng.window.state('zoomed')
+        try:
+            if(platform.system() == "Linux"):
+                    mng.full_screen_toggle()
+            else:
+                #for windows
+                mng.window.state('zoomed')
+        except Exception:
+            print("main.py func: compare - there was a problem showing in full screen")
 
         ax[1].axis('off')
         ax[1].axis('tight')
@@ -329,14 +333,22 @@ class Partfolio:
                 #    print("///")
                 continue
 
+
+
+    
+    def show_precise_graph(self, length=5, start_date=None, end_date=None):
+        pass
+    
+
 if __name__ == '__main__':
+    # add $ to the price
+    # add explnation to the table columns
 
+    workbook = xlsxwriter.Workbook('stock_data.xlsx')
+    workbook.add_worksheet('Sheet1')
+    workbook = openpyxl.load_workbook('stock_data.xlsx')
+    sheet = workbook.active
+
+    workbook.close()
     p = Partfolio()
-    p.delete_data()
-    print("data deleted")
-    p.mydb.create_table()
-    print("table created")
-
-    p.compare([ "msft", "aapl", "qqq", "agg"])
-    print("compare done running")
-    #p.interface()
+    p.create_all_symbols()

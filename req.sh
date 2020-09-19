@@ -9,5 +9,5 @@ pip3 install pandas
 pip3 install csv
 pip3 install pandas_datareader
 pip3 install xlsxwriter
+pip3 install openpyxl
 pip3 install matplotlib
-
