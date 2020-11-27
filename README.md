@@ -1,21 +1,29 @@
-# stock-code
-this program will help you analyse any stock you want and compare it to any other option
-farther more it will let you dicover new stocks and etf that will stand in the paramaters that you choose, even those you didnt know exist!
+# Stock Analysis	
 
-some basic knoladge before we dive to the code
-stock is a share in a company (a tiny part of it) thats mean that your one of her (many) owners
-yeald is how mach the stock price rised 
-dividend is a part of the revenue the company did that go to the owners (the stock holders)
-bond is a loan that you can give to a company or a state 
-etf is a  banch of stock or bonds (or both)
+Stock Analysis will help you check out stocks, compare them or even filter them.
+from 10367 finance products you can choose the best suited for you based on yields of price or dividend in specific years,
+PE ratio or the profitability of the company.
+compare visual graphs of any stacks and export the data in to excel file.
 
-the main file is where the user begin, and this file use the others to handle everything
-finance_product: is the main object that we work with
-stock, etf: are an objects that are being used as a field in the finance prudact 
-database_handler: where we use mysql to save our data
-calculation: from there we import information that is relevent to several files
-test is for experement somethings in a clean envairment brfore integrate them to the file
+2 shorts video (less then 3o seconds) that show the script in action
 
-req.sh this will help you to install al the necessery python packages
-I guese that you are using windows so you will need to change the end to .bat end the pip3 to pip and run through the CMD
-or just downlload them one by one
+https://www.youtube.com/watch?v=GIDT-iHpExc&ab_channel=eilontoledano
+
+https://www.youtube.com/watch?v=5dSntCRkA6c&ab_channel=eilontoledano
+ 
+the Python script collected the data from all USA stocks, by calling a google cloud function using multi thread.
+and store the data in firebase realtime database.
+
+get_data_google_cloud.py is the function that found in the google cloud that collecting the data
+send_request_thread, colling the google cloud function in multi thread with all the stocks symbols
+raw_data.json where the data store as json objects
+json_to_csv.py convert the data from json form to array form and storing it in data.csv
+data.csv to easily convert the data into numpy array.
+main.py - where all the action is happening containing a user console interface, and the filter and compare functions described above.
+in calculation.py there are all the often used and not so pretty functions, that allow better handling and representing of the data.
+req.sh this will help you to install al the necessary python packages (for linux)
+
+-currently not in use-
+data_sorted.csv is the same as data.csv but for every data field column there is an index column,
+for time efficient sorting the data with masking
+database_handler.py used to handle a sql database

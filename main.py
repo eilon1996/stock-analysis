@@ -1,4 +1,4 @@
-
+import os
 import time
 
 import openpyxl
@@ -12,8 +12,12 @@ import platform
 import finance_product as fp
 import database_handler
 import calculation
+import sys
+import datetime
 
-# this is where the user start, mainmly the interface method is in use 
+np.set_printoptions(threshold=sys.maxsize, precision=2, linewidth=500)
+
+# this is where the user start, mainmly the interface method is in use
 
 class Partfolio:
 
@@ -21,124 +25,58 @@ class Partfolio:
         self.stocks_wrong = []
         self.mydb = database_handler.DatabaseHandler()
 
-
-    def save_product(self, symbol):
-        try:
-            product = fp.FinanceProduct(symbol.upper())
-            product.save_as_xlsx()
-           # self.mydb.add_product(product)
-        except:
-            pass
-
-    def create_all_symbols(self):
-        """
-        :return: all the possible stocks symbols up to 4 letters
-        :rtype: nested list
-        """
-        s = time.time()
-        # 1 letter
-        a = []
-        a1 = []
-        for i in range(26):
-            symbol = chr(65 + i)
-            print(symbol)
-            a.append([symbol])
-            self.save_product(symbol)
-        print("1 letter, ", time.time() - s)
-
-        # TODO: compress to one nested loop
-        # 2 letter
-        b = np.full((26, 26), "AA")
-        b1 = []
-        for j in range(26):
-            print("loop 2, start letter is " +str(a[j][0]))
-            b1.append([])
-            for i in range(26):
-                symbol = str(a[j][0] + a[i][0])
-                b[j, i] = symbol
-                self.save_product(symbol)
-
-        print("2 letter, ", time.time() - s)
-
-        return a1, b1
-
-        # 3 letter
-        c = np.full((26, 26 * 26), "AAA")
-        c1 = []
-        for j in range(26):
-            for i in range(26):
-                c1.append([])
-                for k in range(26):
-                    symbol = str(b[j][i] + a[k][0])
-                    c[j, i * 26 + k] = symbol
-                    self.save_product(symbol)
-
-        print("3 letter, ", time.time() - s)
-
-        # 4 letter
-        d = np.full((26, 26 ** 3), "AAAA")
-        d1 = []
-        for j in range(26):
-
-            for i in range(26 ** 2):
-                d1.append([])
-                for k in range(26):
-                    t = str(c[j][i] + a[k][0])
-                    d[j, i * 26 + k] = t
-                    self.save_product(symbol)
-
-            print("4 letter: ", j, " ,", time.time() - s)
-        return [a1, b1, c1, d1]
-
-    def get_stocks_symbols_to_xlsx(self, file_name, info):
-        # info should be nested list with the stocks symbols divided acording to the first letter
-        # saving file with existing file name will run-over the old one
-        workbook = xlsxwriter.Workbook("C:\\Users\\Uriya\\Desktop\\all stocks symbols.xlsx")
-        index = 0
-        s = time.time()
-        for i in info:
-            print(index, time.time() - s)
-            worksheet = workbook.add_worksheet()
-            for col, stocks_per_letter in enumerate(i):
-                for row, symbol in enumerate(stocks_per_letter):
-                    worksheet.write(row, col, symbol)
-        workbook.close()
-
-        workbook = xlsxwriter.Workbook("C:\\Users\\Uriya\\Desktop\\not stocks symbols.xlsx")
-        worksheet = workbook.add_worksheet()
-        for index, value in self.stocks_wrong:
-            worksheet.write((index) % 100, 2 * index // 100, value[0])
-            worksheet.write((index) % 100, 2 * index // 100 + 1, value[1])
-
-    #not finnished     
-    def show_product_data(self, symbols):
-
-        col_label = ["yield", "dividend", "dividend in %"]
-        col_label_stock = ["revenue", "income",  "assents", "free cash", "debt"]
-        col_label_etf = ["top holdings", "stocks share",  "bond share", "sectors"]
-
-        row_lable_stock= ["5 years yield", "profitability", "debt/assents", "market_cap", "top_sector", "country",
-                          "pe ratio",  "avg volume", "analyst score"]
-        
-        data = []
-        row_lable = []
-        for s in symbols:
-            tmp = self.mydb.get_product_by_symbol(s.upper())
-            if len(tmp) > 0:
-                row = tmp[0]
-            else:
+    @staticmethod
+    def compare(data, check=False):
+        symbols = []
+        indexes = []
+        if check: # to check only one stock
+            print("please enter the symbol of the finance product you want to check: ")
+            input_ok = False
+            while not input_ok:
+                symbols.append(input("->"))
                 try:
-                    self.mydb.add_product(fp.FinanceProduct(s.upper()))
+                    indexes.append(np.where(data[:, 0] == symbols[0].upper())[0][0])
+                    break
                 except:
-                    print("a problem occurred will loading ", s.upper())
-                    continue
-                row = self.mydb.get_product_by_symbol(s.upper())[0]
-            for index in range(max(0, len(row[1]) // 2 - 2), len(row[1]) - 1):
-                if row[1][index] == " ":
-                    row_lable.append(row[1][:index] + "\n" + row[1][index + 1:])
+                    print(str(symbols[0]) + " is not a finance product, try again")  # need to add suggestion
+                    symbols.pop(0)
+        else: # to compare several stocks
+            print("please enter the symbols of the finance product you want to compare one by one\n"
+                  "when you want to start compare just press another Enter: ")
+            while True:
+                user_input = input("->")
+                if user_input == "":
                     break
-                data.append(list(row))
-            
+                symbols.append(user_input)
+
+            if len(symbols) > 5:
+                print("too many products to compare")
+                return
+            print("comparing...")
+            tmp_symbols = []
+            for i, s in enumerate(symbols):
+                try:
+                    indexes.append(np.where(data[:, 0] == s.upper())[0][0])
+                    tmp_symbols.append(s)
+                except:
+                    print(s + " is not a finance product")  # need to add suggestion
+            symbols = tmp_symbols
+        symbols_data = data[indexes]
+
+        names = []
+        for s in symbols_data:
+            for i in range(len(s))[1:]:
+                if calculation.default_values[calculation.fields[i]] == s[i]:
+                    s[i] = "-"
+                else:
+                    if i in [1, 7]: s[i] = calculation.add_prefix(s[i])
+                    elif i in [3]: s[i] = calculation.two_point_percentage(s[i], True)
+                    elif i in [5, 14, 16, 17]: s[i] = calculation.two_point_percentage(s[i])
+                    elif i == 4: s[i] = calculation.split_word(s[i])
+                    elif i == 8: names.append(calculation.split_word(s[i]))
+
+        mask_filter = [1,2,3,4,5,6,7,9,11,12,13,14,16,17]
+        symbols_data = symbols_data[:,mask_filter]
 
         fig, ax = plt.subplots(2, 1)
         # hide axes
@@ -146,132 +84,19 @@ class Partfolio:
 
         # full screen
         mng = plt.get_current_fig_manager()
-        mng.window.state('zoomed')
-
-        ax[1].axis('off')
-        ax[1].axis('tight')
-
-        data = np.asarray(data)[:, 2:]
-        df = pd.DataFrame(data, columns=calculation.headlines[2:])
-        table = ax[1].table(cellText=df.values, colLabels=df.columns, rowLabels=row_lable, cellLoc='center')
-        fig.tight_layout()
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-
-        ###############
-        for s in symbols:
-            df = dr.DataReader(s, 'yahoo')
-            ax[0].plot_date(df.index, df.Close, '-')
-            plt.plot_date([], [], label=s)
-
-        plt.xlabel('Date')
-        plt.ylabel('Price')
-        plt.title('  VS  '.join(symbols))
-        plt.legend()
-
-        plt.show()
-
-
-    def show_data(self, show=True):
-        fig, ax = plt.subplots()
-        # hide axes
-        fig.patch.set_visible(False)
-        ax.axis('off')
-        ax.axis('tight')
-        data = np.asarray(self.mydb.get_all_products())
-        row_lable = []
-        for i, row in enumerate(data):
-            for index in range(len(row[1]) // 2 - 2, len(row[1]) - 1):
-                if row[1][index] == " ":
-                    row_lable.append(row[1][:index] + "\n" + row[1][index + 1:])
-                    break
-            if row[2] == 1: # == etf
-                row[2] = "etf"
-                row[8:10]= "-"
-               # row[8]=row[9]= row[10] = "-"
-            else:
-                row[2] = "stock"
-                row[8] = str(row[8]) + "%"
-                row[9] = str(row[9]) + "%"
-        
-            row[4] = str(row[4]) + "%"
-            row[5] = str(row[5]) + "%"
-            row[6] = str(row[6]) + "%"
-            row[7] = str(row[7]) + "%"
-
-        
-        # transforming market cap to readble view with prefix of K, M, B, T
-        row[10] = calculation.add_prefix(row[10])
-        row[11] = calculation.get_sectors_name(row[11])
-
-        data = data[:, 2:]
-        df = pd.DataFrame(data, columns=calculation.headlines[2:])
-        table = ax.table(cellText=df.values, colLabels=df.columns, rowLabels=row_lable, loc='center')
-        fig.tight_layout()
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        if show:
-            plt.show()
-        else:
-            return table
-
-
-    def compare(self, symbols):
-        if len(symbols) > 5:
-            print("too many products to compare")
-            return
-        data = []
-        row_lable = []
-        print("comparing...")
-        for s in symbols:
-            time_start = time.time()
-            print(s+" start")
-            tmp = self.mydb.get_product_by_symbol(s.upper())
-            if tmp is not None and len(tmp) > 0:
-                row = list(tmp)
-            else:
-                #try:
-                p = fp.FinanceProduct(s.upper())
-                self.mydb.add_product(p)
-               # except Exception as e:
-               #     print("a problem occurred will loading ", s.upper(), "\n", e)
-               #     continue
-                row = list(self.mydb.get_product_by_symbol(s.upper()))
-
-            #stocks name are usaly long so we split it to 2 lines
-            for index in range(max(0, len(row[1]) // 2 - 2), len(row[1]) - 1):
-                if row[1][index] == " ":
-                    row_lable.append(row[1][:index] + "\n" + row[1][index + 1:])
-                    break
-
-            # transforming market cap to readble view with prefix of K, M, B, T
-            row[10] = calculation.add_prefix(row[10])
-
-            
-            data.append(row[2:])
-            print(s+" done in: "+ (time.time()- time_start))
-
-        fig, ax = plt.subplots(2, 1)
-        # hide axes
-        fig.patch.set_visible(False)
-
-        # full screen
-        mng = plt.get_current_fig_manager()
-        print("I'm running on "+ platform.system())
         try:
-            if(platform.system() == "Linux"):
-                    mng.full_screen_toggle()
+            if (platform.system() == "Linux"):
+                mng.full_screen_toggle()
             else:
-                #for windows
+                # for windows
                 mng.window.state('zoomed')
-        except Exception:
+        except:
             print("main.py func: compare - there was a problem showing in full screen")
 
         ax[1].axis('off')
         ax[1].axis('tight')
 
-        df = pd.DataFrame(data, columns=calculation.headlines[2:])
-        table = ax[1].table(cellText=df.values, colLabels=df.columns, rowLabels=row_lable, cellLoc='center')
+        table = ax[1].table(cellText=symbols_data, colLabels=calculation.headlines, rowLabels=names, cellLoc='center')
         fig.tight_layout()
         table.auto_set_font_size(False)
         table.set_fontsize(10)
@@ -286,69 +111,198 @@ class Partfolio:
         plt.ylabel('Price')
         plt.title('  VS  '.join(symbols))
         plt.legend()
-
         plt.show()
-    
-    def delete_data(self):
-        self.mydb.delete_products()
+        pass
+
+    def filter_by(self, data):
+        print("choose a field you want to filter from")
+        for i, v in enumerate(calculation.default_values.keys()):
+            print(str(i + 1) + ": " + str(v))
+        input_ok = False
+        while not input_ok:
+            user_input = input("enter the number of the field: ")
+            try:
+                user_input = int(user_input)
+                if 1 <= user_input <= 17: input_ok = True
+                else: print("you need to enter an index from the options")
+            except:
+                print("you need to enter a number")
+
+        defualt_value = list(calculation.default_values.values())[user_input - 1]
+
+        if isinstance(defualt_value, bool):
+            input_ok = False
+            print("enter if you want the value to be  1: true or 2: false : ")
+            while not input_ok:
+                user_input2 = input()
+                if user_input2 == "1":
+                    user_input2 = True
+                    input_ok = True
+                elif user_input2 == "2":
+                    user_input2 = False
+                    input_ok = True
+                else: print("enter only 1 or 2")
+            mask = [(user_input2 == v) for v in data[:, user_input]]
+        elif isinstance(defualt_value, int):
+            input_ok = False
+            while not input_ok:
+                try:
+                    low = float(input("enter lowest value: "))
+                    high = float(input("enter highest value: "))
+                    if low > high: print("the lower number should be lower or equal then the higher number ;-)")
+                    else:
+                        mask = []
+                        for v in data[:, user_input]:
+                            try: mask.append(low <= float(v) <= high)
+                            except: mask.append(False)
+                        input_ok = True
+                except:
+                    print("enter only numbers")
+        elif user_input == 13 or user_input == 4:
+            print("index\tindustry")
+            for i, v in enumerate(calculation.all_sectors): print(str(i) + "\t" + str(v))
+            user_input2 = input("choose from the above options by entering the index\n"
+                                "you can choose several options by separating with a comma ',': ")
+            input_ok = False
+            while not input_ok:
+                try:
+                    user_input2 = [calculation.all_sectors[int(i)] for i in user_input2.replace(" ", "").split(",")]
+                    input_ok = True
+                except:
+                    print("you have to choose from the above options, and enter only indexes and commas")
+            mask = [any(o in v for o in user_input2) for v in data[:, user_input]]
+        elif isinstance(defualt_value, list):
+            input_ok = False
+            while not input_ok:
+                try:
+                    print("by what parameter you want to filter?")
+                    user_input2 = int(input("1: growth in %\n2: absolute  growth"))
+                    if user_input2 == 2:
+                        f = lambda a, b: (a / b - 1) * 100
+                    elif user_input2 == 1:
+                        f = lambda a, b: (a - b)
+                    else:
+                        raise ValueError
+                    input_ok = True
+                except:
+                    print("your input should be 1 or 2")
+
+                print("between which years you want to check? (2016 - 2020) split your choices with a comma ")
+                input_ok = False
+                while not input_ok:
+                    try:
+                        user_input2 = input()
+                        user_input2 = [int(i) for i in user_input2.replace(" ", "").split(",")]
+                        if user_input2[0] < 2016 or user_input2[1] > 2020 or user_input2[1] - user_input2[0] < 0:
+                            raise ValueError
+                        input_ok = True
+                    except:
+                        print("you have to choose years between 2016 to 2020 , and enter only indexes and commas")
+                mask = [i.count(",") + 1 >= (2020 - user_input2[0] + 1) * 4 for i in data[:, user_input]]
+                data = data[mask]
+
+                input_ok = False
+                while not input_ok:
+                    try:
+                        low = int(input("enter lowest value (without prefix) can also be negative values: "))
+                        high = int(input("enter highest value (without prefix) can also be negative values:"))
+                        if low > high: print("the lower number should be lower or equal then the higher number ;-)")
+                        else: input_ok = True
+                    except:
+                        print("enter only numbers")
+
+                mask = [None] * len(data)
+                for i, string in enumerate(data[:, user_input]):
+                    a = float(string[1:string.index(',') - 1])
+                    b = float(string[string.rfind(",") + 1:-1])
+                    mask[i] = low <= f(b, a) <= high
+        elif isinstance(defualt_value, str):
+            options = {}
+            for v in data[:, user_input]: options[v] = options.get(v, 0) + 1
+            print("index\tvalue\t\t\t\t amount")
+            for i, k in enumerate(options):
+                space = " " * (25 - len(k))
+                print(str(i) + "\t" + k + space + str(options[k]))
+
+            print("choose from the above options by entering the index\n" + "you can choose several options by separating with a comma ','")
+            input_ok = False
+            while not input_ok:
+                try:
+                    user_input2 = input()
+                    a = list(options.keys())
+                    user_input2 = [list(options.keys())[int(i)] for i in user_input2.replace(" ", "").split(",")]
+                    input_ok = True
+                except:
+                    print("you have to choose from the above options, and enter only indexes and commas")
+            mask = [any(o in v for o in user_input2) for v in data[:, user_input]]
+
+        data = data[mask]
+        print("there are " + str(len(data)) +
+              " finance products that answer your filters, do you want to \n1: view them \n2: filter more \n3: reset filter \n4: export to excel file")
+        input_ok = False
+        while not input_ok:
+            user_input2 = input()
+            if user_input2 == "1":
+                calculation.pretty_print(data)
+                print("\ndo you want to \n1: return to the main menu \n2: filter more \n3: reset filter \n4: export to excel file")
+                user_input2 = input()
+                if user_input2 == "1": input_ok = True
+            if user_input2 == "2":
+                input_ok = True
+                self.filter_by(data)
+            if user_input2 == "3":
+                input_ok = True
+                data = np.asarray(pd.read_csv('data_files/data.csv', sep=';', header=None))
+                self.filter_by(data)
+            if user_input2 == "4":
+                input_ok = True
+                calculation.data_to_xlsx(data)
+            if not input_ok: print("enter only 1, 2, 3 or 4 ")
+
 
     def interface(self):
+        data = np.asarray(pd.read_csv('data_files/data.csv', sep=';', header=None))
         while True:
-            print("hi, what action wuold you like to do now?\n"
-                  "check - to check a certain stock or etf (not working yet)\n"
-                  "compare - to compare several stocks & etfs\n"
-                  "exit - to exit this program")
+            print("hi, what action would you like to do now?\n"
+                  "1: to check a certain stock or etf (not working yet)\n"
+                  "2: to compare several stocks & etfs\n"
+                  "3: to filter finance products by fields of your choice\n"
+                  "4: to exit this program")
             user_input = input()
-            if user_input == "exit":
+            if user_input == "0":
                 print("we hope you enjoyed the program\n"
                       "to get even better we would glad if you could leave us a comment what do you think ubout the program\n\n"
                       "if you dont want just press Enter\n")
                 user_input = input()
-                if len(user_input) > 1:
-                    self.mydb.add_comment(user_input)
+                # if len(user_input) > 1:
+                #    self.mydb.add_comment(user_input)
                 print("goodbye")
                 break
-            if user_input == "check":
-                user_input = input("please enter the symbol of the finance product you want to check: ")
-                print("gathering information...")
-                # try:
-                product = fp.FinanceProduct(user_input)
-                #show_data()
-                # except:
-                #    print("///")
+            if user_input == "1":
+                self.compare(data, True)
+
+            if user_input == "2":
+                self.compare(data)
+                print("comparing done")
+
+            if user_input == "3":
+                self.filter_by(data.copy())
                 continue
+            else: print("you need to enter an index from the options")
 
-            if user_input == "compare":
-                print("please enter the symbols of the finance product you want to compare one by one\n"
-                      "when you want to start compare just press another Enter: ")
-                symbols = []
-                while True:
-                    user_input = input("->")
-                    if user_input == "":
-                        break
-                    symbols.append(user_input)
-                # try:
-                self.compare(symbols)
-                # except:
-                #    print("///")
-                continue
+def show_precise_graph(self, length=5, start_date=None, end_date=None):
+    pass
 
-
-
-    
-    def show_precise_graph(self, length=5, start_date=None, end_date=None):
-        pass
-    
 
 if __name__ == '__main__':
-    # add $ to the price
-    # add explnation to the table columns
+    p = Partfolio()
+    p.interface()
+    # p.compare(["MSFT", "AAPL", "QQQ"])
 
-    workbook = xlsxwriter.Workbook('stock_data.xlsx')
+    workbook = xlsxwriter.Workbook('data_files/stock_data.xlsx')
     workbook.add_worksheet('Sheet1')
-    workbook = openpyxl.load_workbook('stock_data.xlsx')
+    workbook = openpyxl.load_workbook('data_files/stock_data.xlsx')
     sheet = workbook.active
 
     workbook.close()
     p = Partfolio()
-    p.create_all_symbols()
