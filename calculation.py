@@ -1,12 +1,14 @@
 import numpy as np
 import time
-
+import pandas as pd
+import xlsxwriter
+import os
 
 #this page helping us to re-use functions and variables without writing them more then once
 
 product_type = ["stock", "etf"]
 
-prefix = ["K", "M", "B", "T", "k", "m", "b", "t"]
+prefix = ["", "K", "M", "B", "T", "k", "m", "b", "t"]
 
 borsas_index = []
 
@@ -15,10 +17,69 @@ stock_sectors = ["Basic Materials", "CONSUMER_CYCLICAL", "Financial Services", "
 bond_sectors = ["US Government", "AAA", "AA", "A", "BBB", "BB", "B", "Below B", "others"]
 all_sectors = stock_sectors + bond_sectors
 
-headlines = np.asarray(["symbol", "name", "price", "currency", "type", "main sector", "industry", "leveraged", "5 years yield", "one year yield","dividend in %", "market_cap",
-            "profitability", "debt/assents"])
+headlines = np.asarray([
+    "averageValume",
+    "currency",
+    "debt_to_assent",
+    "industry",
+    "last_full_year_div",
+    "leveraged",
+    "marketCap",
+    "previousClose",
+    "product_type",
+    "profitability",
+    "sector",
+    "trailingPe",
+    "yield_1y",
+    "yield_5y"
+])
 
 currency = ["USD", ]
+
+
+default_values = {
+    "averageValume": -1,
+    "currency": "-1",
+    "debt_to_assent": -1,
+    "industry": "-1",
+    "last_full_year_div": -1,
+    "leveraged": False,
+    "marketCap": -1,
+    "name": "name",
+    "previousClose": -1,
+    "price_history": [],
+    "product_type": "-1",
+    "profitability": -1,
+    "sector": "-1",
+    "trailingPe": -1,
+    "yearly_dividend": [],
+    "yield_1y": -1,
+    "yield_5y": -1
+}
+
+fields = [
+    "symbol",
+    "averageValume",
+    "currency",
+    "debt_to_assent",
+    "industry",
+    "last_full_year_div",
+    "leveraged",
+    "marketCap",
+    "name",
+    "previousClose",
+    "price_history",
+    "product_type",
+    "profitability",
+    "sector",
+    "trailingPe",
+    "yearly_dividend",
+    "yield_1y",
+    "yield_5y"
+]
+
+def leng(x):
+    return len(str(x))
 
 
 def sql_to_show(data):
@@ -33,7 +94,7 @@ def sql_to_show(data):
             two_point_percentage(data[8]),
             two_point_percentage(data[9]),
             two_point_percentage(data[10]),
-            add_prefix(data[11]) ]
+            add_prefix(data[11])]
 
 # @staticmethod # consider adding to other methods
 def convert_string_to_number(number):
@@ -65,8 +126,11 @@ def convert_string_to_number(number):
         return -1
 
 def add_prefix(number):
-    
-    multiply = -1
+    try:
+        number = float(number)
+    except:
+        return "-"
+    multiply = 0
     for i in range(4):
         if(number >= 1000):
             number = number/1000
@@ -81,7 +145,6 @@ def add_prefix(number):
         number = round(number*10)//10
 
     return str(number) + prefix[multiply]
-
    
 def get_relevant_dates(time_length=5, start_time=None, end_time=None):
     """
@@ -129,26 +192,103 @@ def get_benchmark_dividend():
     "return QQQ 5 years devidends"
     return [0.01067287, 0.01127553, 0.00968813, 0.00822085, 0.00894117, 0.00420541]
 
-def two_point_percentage(number):
+def two_point_percentage(number, percentage=False):
     try:
-        if hasattr(number, "__len__"):
-            #num is a list or a array
-            check = number[0]
-        else:
-            check = number
+        if not isinstance(number, str):
+            number = str(number)
+        if not number.isnumeric:
+            return "-"
 
-        if check>1:
-            return np.round(number, decimals=2)*100
-        if check>0.1:
-            return np.round(number, decimals=3)*100
-        if check>0.01:
-            return np.round(number, decimals=4)*100
+        i = number.find(".")
+        if i + 2 < len(number)-2: number = number[:i+2]
+        if percentage: number = number + "%"
+        return number
 
     except Exception as e:
-        print("calc.twoPoint.num: "+str(number)+"\n"+str(e))
+        #print("calc.twoPoint.num: "+str(number)+"\n"+str(e))
+        return "-"
 
+
+def find_closest(arr, target, start, end, above):
+    """
+    @above: true if you want to get the target or the closest above it,
+            false if you want to get the target or the closest below it
+    """
+    if end == start:
+        if above:
+            if end == len(arr) or arr[start] >= target: return start
+            return start + 1
+        else:
+            if start == 0 or arr[start] <= target: return start
+            return start - 1
+
+    mid = (end - start) // 2 + start
+    if arr[mid] == target:
+        return mid
+    if arr[mid] < target:
+        return find_closest(arr, target, mid + 1, end, above)
+    return find_closest(arr, target, start, mid - 1, above)
+
+def split_word(word):
+    # stocks name are usaly long so we split it to 2 lines
+    for index in range(max(0, len(word) // 2 - 2), len(word) - 1):
+        if word[index] == " ":
+            return (word[:index] + "\n" + word[index + 1:])
+
+
+def filter_data(data):
+    for s in data:
+        for i in range(len(s))[1:]:
+            if default_values[fields[i]] == s[i]:
+                s[i] = "-"
+            else:
+                if i in [1, 7]:
+                    s[i] = add_prefix(s[i])
+                elif i in [3]:
+                    s[i] = two_point_percentage(s[i], True)
+                elif i in [5, 9, 14, 16, 17]:
+                    s[i] = two_point_percentage(s[i])
+    mask_filter = [0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 13, 14, 16, 17]
+    return np.vstack((np.hstack((["symbol"], headlines)), data[:, mask_filter]))
+
+def pretty_print(data):
+    if len(data) == 0:
+        print("there are no stocks left after the filter\nyou should reset your filter and try again")
+        return
+    data = filter_data(data)
+    length = np.zeros((len(data), len(data[0])), dtype=int)
+    for i, row in enumerate(data):
+        for j in range(len(row)):
+            length[i, j] = len(str(row[j]))
+
+    max = np.max(length, axis=0)
+    res = ""
+    for i, row in enumerate(data):
+        for j in range(len(row)):
+            res += str(row[j]) + " "*(max[j] - length[i, j] + 4)
+        res += "\n"
+    print(res)
+    pass
+
+
+def data_to_xlsx(data):
+    if len(data) == 0:
+        print("there are no stocks left after the filter\nyou should reset your filter and try again")
+        return
+    file_name = input("enter a name, for the excel file: ")
+    workbook = xlsxwriter.Workbook(os.getcwd() + "/data_files/"+file_name+".xlsx")
+    worksheet = workbook.add_worksheet()
+    data = filter_data(data)
+    for row in range(len(data)):
+        for col in range(len(data[0])):
+            worksheet.write(row, col, data[row][col])
+    workbook.close()
+    print("the data is ready in file " + file_name + " in folder data_files")
 
 
 
 if __name__ == '__main__':
     pass
+
+    #data = np.asarray(pd.read_csv('data_files/data.csv', sep=';', header=None))
+    #pretty_print(data[:500])

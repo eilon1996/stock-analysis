@@ -24,8 +24,8 @@ class FinanceProduct:
         except:
             # some times its not working on the first time becouse of internet connection
             time.sleep(7)
+            
             ticker = yf.Ticker(symbol)
-            ###### get stock info ######
             info = ticker.info
 
         self.name = (info['shortName'] if len(info['shortName']) < len(info['longName']) else info['longName'])
@@ -436,7 +436,7 @@ class FinanceProduct:
 
     def save_as_xlsx(self):
         data = self.get_data_for_xlsx()
-        workbook = openpyxl.load_workbook('stock_data.xlsx')
+        workbook = openpyxl.load_workbook('data_files/stock_data.xlsx')
         sheet = workbook.active
         sheet.append(data)
         workbook.save('stock_data.xlsx')
@@ -448,7 +448,7 @@ class FinanceProduct:
         path = os.getcwd()
         workbook = xlsxwriter.Workbook(path+'/stock_data.xlsx')
         workbook.add_worksheet('Sheet1')
-        workbook = openpyxl.load_workbook('stock_data.xlsx')
+        workbook = openpyxl.load_workbook('data_files/stock_data.xlsx')
         sheet = workbook.active
         sheet.append(list(calculation.headlines))
 

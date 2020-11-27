@@ -3,3 +3,4 @@ req.sh
 .idea
 .git
 .vscode
+tests.py
