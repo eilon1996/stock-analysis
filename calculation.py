@@ -196,7 +196,7 @@ def two_point_percentage(number, percentage=False):
     try:
         if not isinstance(number, str):
             number = str(number)
-        if not number.isnumeric:
+        if not number.isnumeric or number == "-1" or number == "-":
             return "-"
 
         i = number.find(".")

@@ -43,24 +43,29 @@ class Partfolio:
         else: # to compare several stocks
             print("please enter the symbols of the finance product you want to compare one by one\n"
                   "when you want to start compare just press another Enter: ")
-            while True:
-                user_input = input("->")
-                if user_input == "":
-                    break
-                symbols.append(user_input)
+            input_ok = False
+            while not input_ok:
+                while True:
+                    user_input = input("->")
+                    if user_input == "":
+                        break
+                    symbols.append(user_input)
 
-            if len(symbols) > 5:
-                print("too many products to compare")
-                return
-            print("comparing...")
-            tmp_symbols = []
-            for i, s in enumerate(symbols):
-                try:
-                    indexes.append(np.where(data[:, 0] == s.upper())[0][0])
-                    tmp_symbols.append(s)
-                except:
-                    print(s + " is not a finance product")  # need to add suggestion
-            symbols = tmp_symbols
+                if len(symbols) > 5:
+                    print("too many products to compare")
+                    return
+                print("comparing...")
+                tmp_symbols = []
+                for i, s in enumerate(symbols):
+                    try:
+                        indexes.append(np.where(data[:, 0] == s.upper())[0][0])
+                        tmp_symbols.append(s)
+                    except:
+                        print(s + " is not a finance product")  # need to add suggestion
+                symbols = tmp_symbols
+                if len(symbols) == 0:
+                    print("all the symbols you entered were not finance products, please try again")
+                else: input_ok = True
         symbols_data = data[indexes]
 
         names = []
@@ -298,11 +303,3 @@ if __name__ == '__main__':
     p = Partfolio()
     p.interface()
     # p.compare(["MSFT", "AAPL", "QQQ"])
-
-    workbook = xlsxwriter.Workbook('data_files/stock_data.xlsx')
-    workbook.add_worksheet('Sheet1')
-    workbook = openpyxl.load_workbook('data_files/stock_data.xlsx')
-    sheet = workbook.active
-
-    workbook.close()
-    p = Partfolio()

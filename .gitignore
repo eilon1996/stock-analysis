@@ -4,3 +4,5 @@ req.sh
 .git
 .vscode
 tests.py
+main2.py
+data_files/

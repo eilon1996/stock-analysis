@@ -13,46 +13,8 @@ bond_sectors = ["US Government", "AAA", "AA", "A", "BBB", "BB", "B", "Below B", 
 all_sectors = stock_sectors + bond_sectors
 
 
-def two_point_percentage(number):
-    try:
-        if hasattr(number, "__len__"):
-            # num is a list or a array
-            check = number[0]
-        else:
-            check = number
-
-        if check > 1:
-            return np.round(number * 100, decimals=2)
-        if check > 0.1:
-            return np.round(number * 100, decimals=3)
-        if check > 0.01:
-            return np.round(number * 100, decimals=4)
-        return 0
-    except Exception as e:
-        print("calc.twoPoint.num: " + str(number) + "\n" + str(e))
-
-
-def two_point_num(number):
-    try:
-        if hasattr(number, "__len__"):
-            # num is a list or a array
-            check = number[0]
-        else:
-            check = number
-
-        if check > 1:
-            return np.round(number, decimals=2)
-        if check > 0.1:
-            return np.round(number, decimals=3)
-        if check > 0.01:
-            return np.round(number, decimals=4)
-        return 0
-    except Exception as e:
-        print("calc.twoPoint.num: " + str(number) + "\n" + str(e))
-
-
 def get_benchmark_yield():
-    "return QQQ 5 years detailed yield"
+    """return QQQ 5 years detailed yield"""
     return [1.1003496595751494, 1.0666549243004677, 1.302516102588014, 0.937726452964105, 1.4288811421353493]
 
 
@@ -95,7 +57,7 @@ def convert_string_to_number(number):
 
         return res * multiply
     except ValueError:
-        return -1
+        return "-"
 
 
 def create_product(symbol):
@@ -106,7 +68,7 @@ def create_product(symbol):
 
     except:
         # some times its not working on the first time becouse of internet connection
-        time.sleep(3.5)
+        time.sleep(3)
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
@@ -116,36 +78,29 @@ def create_product(symbol):
     # assigning defualt values
     name = symbol
     symbol = symbol.upper()
-    product = {}
-    product_type = ""
-    sector = ""
-    industry = ""
-    profitability = -1
-    debt_to_assent = -1
-    leveraged = False
-    price_history = []
+    product_type = "-"
+    sector = "-"
+    industry = "-"
+    profitability = "-"
+    debt_to_assent = "-"
+    leveraged = "-"
+    price_history = "-"
     yearly_dividend = np.zeros(5)
-    div_per_price = []
-    last_full_year_div = 0
-    yield_1y = 0
-    yield_5y = 0
+    div_per_price = "-"
+    last_full_year_div = "-"
+    yield_1y = "-"
+    yield_5y = "-"
     error = ""
 
     #### set name ####
 
-    try:
-        s_name = info['shortName']
-    except:
-        s_name = ""
-    try:
-        l_name = info['longName']
-    except:
-        l_name = ""
+    try: s_name = info['shortName']
+    except: s_name = ""
+    try: l_name = info['longName']
+    except: l_name = ""
     if s_name != "" and l_name != "":
-        if len(s_name) > len(l_name):
-            name = l_name
-        else:
-            name = s_name
+        if len(s_name) > len(l_name): name = l_name
+        else: name = s_name
     elif s_name == "" and l_name != "":
         name = l_name
     elif s_name != "" and l_name == "":
@@ -162,7 +117,6 @@ def create_product(symbol):
             html_content = requests.get(url).text  # Make a GET request to fetch the raw HTML content
             soup = BeautifulSoup(html_content, "lxml")  # Parse the html content
             data = soup.find("section", attrs={"class": "Pb(20px) smartphone_Px(20px) smartphone_Mt(20px)"})
-            sectors = {}
 
             bond_share = convert_string_to_number(
                 data.contents[0].contents[0].contents[1].contents[1].contents[1].text[:-1])
@@ -177,13 +131,13 @@ def create_product(symbol):
             sectors = [convert_string_to_number(x.contents[2].text[:-1]) for x in sectors_data[1:]]
             max1 = max(sectors)
             max1_index = sectors.index(max1)
-            industry = get_sectors_name(max1_index) + " " + str(max1) + "%"
+            industry = get_sectors_name(max1_index) + " - " + str(max1) + "%"
 
             if max1 < 90:
                 sectors[max1_index] = 0
                 max2 = max(sectors)
                 max2_index = sectors.index(max2)
-                industry += "\n" + get_sectors_name(max2_index) + " " + str(max2) + "%"
+                industry += ", " + get_sectors_name(max2_index) + " - " + str(max2) + "%"
 
             # ETF dont have profitability or debt_to_assent
 
@@ -206,8 +160,8 @@ def create_product(symbol):
 
             revenue = convert_string_to_number(data.contents[0].contents[0].contents[2].string)
             income = convert_string_to_number(data.contents[10].contents[0].contents[2].string)
-            profitability = two_point_percentage(revenue / income)
-
+            try: profitability = revenue / income
+            except: profitability = "-"
             ###### get stock debt/assent ######
 
             url = "https://finance.yahoo.com/quote/" + symbol + "/balance-sheet?p=" + symbol
@@ -217,7 +171,8 @@ def create_product(symbol):
 
             assent = convert_string_to_number(data.contents[0].contents[0].contents[1].string)
             debt = convert_string_to_number(data.contents[11].contents[0].contents[1].string)
-            debt_to_assent = two_point_percentage(debt / assent)
+            try: debt_to_assent = debt / assent
+            except: debt_to_assent = "-"
 
 
     except Exception as e:
@@ -243,10 +198,6 @@ def create_product(symbol):
         not_nan = price_history == price_history
         price_history = price_history[not_nan]
 
-        dates = np.array([[history.index.day[i], history.index.month[i], history.index.year[i]]
-                          for i in range(len(history.index) - 1)])
-        dates = dates[not_nan].tolist
-
     except Exception as e:
         error += "get historical: " + str(e)
 
@@ -258,24 +209,23 @@ def create_product(symbol):
         start_index = dates.index(first_year)
 
         count_last_year = 0
-        count_previes_year = 0
+        count_previous_year = 0
         for (div, y) in zip(dividends[start_index:], dates[start_index:]):
             yearly_dividend[y - first_year] += div
 
-            if y - first_year == 3: count_previes_year += 1
+            if y - first_year == 3: count_previous_year += 1
             if y - first_year == 4: count_last_year += 1
-        if count_previes_year == count_last_year:
+        if count_previous_year == count_last_year:
             # this is a full year dividend
-            astimate_last_div = yearly_dividend[-1]
+            estimate_last_div = yearly_dividend[-1]
             last_full_year_div = sum(yearly_dividend[-4:-1])
         else:
             # this is not a full year dividend
             ### estimate for full year
             ### we asume that there will be the same amount of dividend as last year
             ### and that the rimaining dividens are like the last one
-            astimate_last_div = yearly_dividend[-1] + dividends[-1] * (count_previes_year - count_last_year)
+            estimate_last_div = yearly_dividend[-1] + dividends[-1] * (count_previous_year - count_last_year)
             last_full_year_div = sum(yearly_dividend[-4 - count_last_year:-1 - count_last_year])
-        two_point_num(last_full_year_div)
 
 
     except Exception as e:
@@ -295,17 +245,24 @@ def create_product(symbol):
 
             if y - first_year == 4: count_last_year += 1
 
-        last_full_year_sum_price = sum_price[-1] + price_history[-1] * (4 - count_previes_year)
+        last_full_year_sum_price = sum_price[-1] + price_history[-1] * (4 - count_previous_year)
 
-        div_per_price = (yearly_dividend[:-1] / (sum_price[:-1] / 4))
-        div_per_price += astimate_last_div / (last_full_year_sum_price / 4)
+
+        try:
+            div_per_price = (yearly_dividend[:-1] / (sum_price[:-1] / 4))
+            div_per_price += estimate_last_div / (last_full_year_sum_price / 4)
+        except:
+            div_per_price = "-"
+
 
     except Exception as e:
         error += "get dividends in %: " + str(e)
 
     ##### calculate div and price yield #####
     try:
-        yield_1y = two_point_percentage(price_history[-1] / price_history[-5] - 1)
+        yield_1y = price_history[-1] / price_history[-5] - 1
+    except: yield_1y = "-"
+    try:
         if len(price_history) >= 21:
             # we have full data of 5 years
             yield_5y = price_history[-1] / price_history[0] - 1
@@ -319,8 +276,6 @@ def create_product(symbol):
             yeild_missing_year = get_benchmark_yield()[0] * ratio
             yield_5y = yeild_missing_year * yield_4y - 1
 
-        yield_5y = two_point_percentage(yield_5y)
-
     except Exception as e:
         error += "get yeald: " + str(e)
 
@@ -331,23 +286,23 @@ def create_product(symbol):
     try:
         currency = info["currency"]
     except:
-        currency = "error"
+        currency = "-"
     try:
         trailingPE = info["trailingPE"]
     except:
-        trailingPE = "error"
+        trailingPE = "-"
     try:
         marketCap = info["marketCap"]
     except:
-        marketCap = "error"
+        marketCap = "-"
     try:
         averageVolume = info["averageVolume"]
     except:
-        averageVolume = "error"
+        averageVolume = "-"
     try:
         previousClose = info["previousClose"]
     except:
-        previousClose = "error"
+        previousClose = "-"
 
     product = {symbol: {
         "name": name,
@@ -370,11 +325,10 @@ def create_product(symbol):
     }}
 
     url = "https://stocks-etf.firebaseio.com/.json"
-
     data = json.dumps(product)
-
-    response = requests.patch(url, data)
-    return "done"
+    requests.patch(url, data)
+    
+    return error + " done"
 
 
 def hello_world(request):

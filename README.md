@@ -1,11 +1,11 @@
 # Stock Analysis	
 
 Stock Analysis will help you check out stocks, compare them or even filter them.
-from 10367 finance products you can choose the best suited for you based on yields of price or dividend in specific years,
+from 12861 finance products you can choose the best suited for you based on yields of price or dividend in specific years,
 PE ratio or the profitability of the company.
 compare visual graphs of any stacks and export the data in to excel file.
 
-2 shorts video (less then 3o seconds) that show the script in action
+2 shorts video (less then 30 seconds) that show the script in action
 
 https://www.youtube.com/watch?v=GIDT-iHpExc&ab_channel=eilontoledano
 
