@@ -20,11 +20,7 @@ np.set_printoptions(threshold=sys.maxsize, precision=2, linewidth=500)
 # this is where the user start, mainmly the interface method is in use
 
 class Partfolio:
-
-    def __init__(self):
-        self.stocks_wrong = []
-        self.mydb = database_handler.DatabaseHandler()
-
+    
     @staticmethod
     def compare(data, check=False):
         symbols = []
