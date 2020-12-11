@@ -21,7 +21,6 @@ json_to_csv.py convert the data from json form to array form and storing it in d
 data.csv to easily convert the data into numpy array.
 main.py - where all the action is happening containing a user console interface, and the filter and compare functions described above.
 in calculation.py there are all the often used and not so pretty functions, that allow better handling and representing of the data.
-req.sh this will help you to install al the necessary python packages (for linux)
 
 -currently not in use-
 data_sorted.csv is the same as data.csv but for every data field column there is an index column,
