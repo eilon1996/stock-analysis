@@ -26,4 +26,4 @@ main.py - where all the action is happening containing a user console interface,
 in calculation.py there are all the often used and not so pretty functions, that allow better handling and representing of the data.  
 
 
-<img src="https://github.com/eilon1996/stock-analysis/blob/master/stock.gif" width="640" height="324"/>
+<img src="https://github.com/eilon1996/stock-analysis/blob/master/stocks.gif" width="640" height="324"/>
