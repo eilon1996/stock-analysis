@@ -3,6 +3,7 @@ import time
 import pandas as pd
 import xlsxwriter
 import os
+pd.options.mode.chained_assignment = None  # default='warn'
 
 #this page helping us to re-use functions and variables without writing them more then once
 
@@ -20,8 +21,9 @@ all_sectors = stock_sectors + bond_sectors
 
 
 headlines = np.asarray([
+    "Symbol",
     "Average Volume",
-    "currency",
+    "Currency",
     "Debt/Assent",
     "Industry",
     "Dividend 1y",
@@ -30,7 +32,7 @@ headlines = np.asarray([
     "previousClose",
     "Product Type",
     "Profitability",
-    "sector",
+    "Sector",
     "Trailing PE",
     "Yield 1y",
     "Yield 5y"
@@ -42,7 +44,7 @@ currency = ["USD", ]
 default_values = {
     "Symbol": "-1",
     "Average Volume": -1,
-    "currency": "-1",
+    "Currency": "-1",
     "Debt/Assent": -1,
     "Industry": "-1",
     "Dividend 1y": -1,
@@ -53,7 +55,7 @@ default_values = {
     "price_history": [],
     "Product Type": "-1",
     "Profitability": -1,
-    "sector": "-1",
+    "Sector": "-1",
     "Trailing PE": -1,
     "yearly_dividend": [],
     "Yield 1y": -1,
@@ -63,7 +65,7 @@ default_values = {
 fields = [
     "Symbol",
     "Average Volume",
-    "currency",
+    "Currency",
     "Debt/Assent",
     "Industry",
     "Dividend 1y",
@@ -74,7 +76,7 @@ fields = [
     "price_history",
     "Product Type",
     "Profitability",
-    "sector",
+    "Sector",
     "Trailing PE",
     "yearly_dividend",
     "Yield 1y",
@@ -103,12 +105,9 @@ def sql_to_show(data):
 def convert_string_to_number(number):
     """"for dealing with representing like  -15,010.3M
             relevent for extarcting data from HTML"""
+    if isinstance(number, float) or isinstance(number, int):
+        return number
     try:
-        minus = False
-        if number[0] == "-":
-            minus = True
-            number = number[1:]
-        
         # if the number have one of those prefix we will turn it to the full number
         try:
             multiply = prefix.index(number[-1])
@@ -117,13 +116,7 @@ def convert_string_to_number(number):
                 number = number[:-1]
         except: multiply = 1
 
-        divided_number = number.split(",")
-        res = 0
-        for i in divided_number:
-            res = res * 1000 + float(i)
-
-        if minus: res = -1 * res
-    
+        res = float("".join(number.split(",")))
         return res*multiply
     except ValueError:
         return -1
@@ -242,20 +235,28 @@ def split_word(word):
             return (word[:mid + i] + "\n" + word[mid + i + 1:])
     return word
 
+def adjust_value(type, value, split=True):
+    if value in [-1, "-1", []]:
+        return "-"
+    else:
+        if type in ["Average Volume", "Market Cap"]:
+            return add_prefix(value)
+        elif type in ["Debt/Assent", "Yield 1y", "Yield 5y"]:
+            return two_point_percentage(value, percentage=True)
+        elif type in ["Dividend 1y", "Trailing PE"]:
+            return two_point_percentage(value)
+        elif type == "Industry" and split:
+            return split_word(value)
+    return value
+
+
 def filter_data(data):
-    for s in data:
-        for i in range(len(s))[1:]:
-            if default_values[fields[i]] == s[i]:
-                s[i] = "-"
-            else:
-                if i in [1, 7]:
-                    s[i] = add_prefix(s[i])
-                elif i in [3]:
-                    s[i] = two_point_percentage(s[i], True)
-                elif i in [5, 9, 14, 16, 17]:
-                    s[i] = two_point_percentage(s[i])
-    mask_filter = [0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 13, 14, 16, 17]
-    return np.vstack((np.hstack((["Symbol"], headlines)), data[:, mask_filter]))
+    data = data[headlines]
+    for s in data:  # s is the column name
+        for i in data.index:  # i is the row index
+                data[s][i] = adjust_value(s, data[s][i], split=False)
+
+    return np.vstack((headlines, data))
 
 def pretty_print(data):
     if len(data) == 0:

@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 # import fix_yahoo_finance
 import numpy as np
@@ -13,7 +15,35 @@ np.set_printoptions(threshold=sys.maxsize, precision=2, linewidth=500)
 # this is where the user start, mainmly the interface method is in use
 
 class Partfolio:
-    
+
+    @staticmethod
+    def get_2_numbers(data, user_input):
+        input_ok = False
+        while not input_ok:
+            try:
+                low = input("enter lowest value (press Enter for no low limitation): ")
+                if low == "": low = -math.inf
+                else:
+                    low = calculation.convert_string_to_number(low)
+                    if low == -1:
+                        raise Exception
+                high = input("enter highest value (press Enter for no high limitation): ")
+                if high == "": high = math.inf
+                else:
+                    high = calculation.convert_string_to_number(high)
+                    if low == -1:
+                        raise Exception
+                if low > high: print("the lower number should be lower or equal then the higher number ;-)")
+                else:
+                    mask = []
+                    for v in data[calculation.fields[user_input-1]]:
+                        try: mask.append(low <= float(v) <= high)
+                        except: mask.append(False)
+                    input_ok = True
+            except Exception as e:
+                print("enter only numbers")
+        return mask
+
     @staticmethod
     def compare(data, check=False):
         symbols = []
@@ -70,18 +100,8 @@ class Partfolio:
         symbols_data = data[mask_filter].T[indexes].T
         names = np.asarray(data["Name"].T[indexes].T)
         for s in symbols_data:  # s is the column name
-            for i in indexes:   # i is the value
-                if symbols_data[s][i] in [-1, "-1", []]:
-                    symbols_data[s][i] = "-"
-                else:
-                    if s in ["Average Volume", "Market Cap"]:
-                        symbols_data[s][i] = calculation.add_prefix(symbols_data[s][i])
-                    elif s in ["Debt/Assent", "Yield 1y", "Yield 5y"]:
-                        symbols_data[s][i] = calculation.two_point_percentage(symbols_data[s][i], percentage=True)
-                    elif s in ["Dividend 1y", "Trailing PE"]:
-                        symbols_data[s][i] = calculation.two_point_percentage(symbols_data[s][i])
-                    elif s == "Industry":
-                        symbols_data[s][i] = calculation.split_word(symbols_data[s][i])
+            for i in indexes:   # i is the row index
+                symbols_data[s][i] = calculation.adjust_value(s, symbols_data[s][i])
 
         symbols_data = np.asarray(symbols_data)
         fig, ax = plt.subplots(2, 1)
@@ -139,45 +159,19 @@ class Partfolio:
 
         if isinstance(defualt_value, bool):
             input_ok = False
-            print("enter if you want the value to be  1: true or 2: false : ")
+            print("enter if you want the value to be leveraged (y/n): ")
             while not input_ok:
                 user_input2 = input()
-                if user_input2 == "1":
+                if user_input2.lower() in ["y", "yes"]:
                     user_input2 = True
                     input_ok = True
-                elif user_input2 == "2":
+                elif user_input2.lower() in ["n", "no"]:
                     user_input2 = False
                     input_ok = True
-                else: print("enter only 1 or 2")
+                else: print("enter only 'y' or 'n'")
             mask = [(user_input2 == v) for v in data[:, user_input]]
         elif isinstance(defualt_value, int):
-            input_ok = False
-            while not input_ok:
-                try:
-                    low = float(input("enter lowest value: "))
-                    high = float(input("enter highest value: "))
-                    if low > high: print("the lower number should be lower or equal then the higher number ;-)")
-                    else:
-                        mask = []
-                        for v in data[:, user_input]:
-                            try: mask.append(low <= float(v) <= high)
-                            except: mask.append(False)
-                        input_ok = True
-                except:
-                    print("enter only numbers")
-        elif user_input == 13 or user_input == 4:
-            print("index\tIndustry")
-            for i, v in enumerate(calculation.all_sectors): print(str(i) + "\t" + str(v))
-            user_input2 = input("choose from the above options by entering the index\n"
-                                "you can choose several options by separating with a comma ',': ")
-            input_ok = False
-            while not input_ok:
-                try:
-                    user_input2 = [calculation.all_sectors[int(i)] for i in user_input2.replace(" ", "").split(",")]
-                    input_ok = True
-                except:
-                    print("you have to choose from the above options, and enter only indexes and commas")
-            mask = [any(o in v for o in user_input2) for v in data[:, user_input]]
+            mask = Partfolio.get_2_numbers(data, user_input)
         elif isinstance(defualt_value, list):
             input_ok = False
             while not input_ok:
@@ -225,11 +219,17 @@ class Partfolio:
                     mask[i] = low <= f(b, a) <= high
         elif isinstance(defualt_value, str):
             options = {}
-            for v in data[:, user_input]: options[v] = options.get(v, 0) + 1
+            for v in data[calculation.fields[user_input-1]].values:
+                options[v] = options.get(v, 0) + 1
             print("index\tvalue\t\t\t\t amount")
             for i, k in enumerate(options):
-                space = " " * (25 - len(k))
-                print(str(i) + "\t" + k + space + str(options[k]))
+                if k == "-":
+                    k = "not define"
+                    space = " " * (25 - len(k))
+                    print(str(i) + "\t" + k + space + str(options["-"]))
+                else:
+                    space = " " * (25 - len(k))
+                    print(str(i) + "\t" + k + space + str(options[k]))
 
             print("choose from the above options by entering the index\n" + "you can choose several options by separating with a comma ','")
             input_ok = False
@@ -241,7 +241,7 @@ class Partfolio:
                     input_ok = True
                 except:
                     print("you have to choose from the above options, and enter only indexes and commas")
-            mask = [any(o in v for o in user_input2) for v in data[:, user_input]]
+            mask = [any(o in v for o in user_input2) for v in data[calculation.fields[user_input-1]].values]
 
         data = data[mask]
         print("there are " + str(len(data)) +
