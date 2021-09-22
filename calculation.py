@@ -17,65 +17,68 @@ stock_sectors = ["Basic Materials", "CONSUMER_CYCLICAL", "Financial Services", "
 bond_sectors = ["US Government", "AAA", "AA", "A", "BBB", "BB", "B", "Below B", "others"]
 all_sectors = stock_sectors + bond_sectors
 
+
+
 headlines = np.asarray([
-    "averageValume",
+    "Average Volume",
     "currency",
-    "debt_to_assent",
-    "industry",
-    "last_full_year_div",
-    "leveraged",
-    "marketCap",
+    "Debt/Assent",
+    "Industry",
+    "Dividend 1y",
+    "Leveraged",
+    "Market Cap",
     "previousClose",
-    "product_type",
-    "profitability",
+    "Product Type",
+    "Profitability",
     "sector",
-    "trailingPe",
-    "yield_1y",
-    "yield_5y"
+    "Trailing PE",
+    "Yield 1y",
+    "Yield 5y"
 ])
 
 currency = ["USD", ]
 
 
 default_values = {
-    "averageValume": -1,
+    "Symbol": "-1",
+    "Average Volume": -1,
     "currency": "-1",
-    "debt_to_assent": -1,
-    "industry": "-1",
-    "last_full_year_div": -1,
-    "leveraged": False,
-    "marketCap": -1,
-    "name": "name",
+    "Debt/Assent": -1,
+    "Industry": "-1",
+    "Dividend 1y": -1,
+    "Leveraged": False,
+    "Market Cap": -1,
+    "Name": "Name",
     "previousClose": -1,
     "price_history": [],
-    "product_type": "-1",
-    "profitability": -1,
+    "Product Type": "-1",
+    "Profitability": -1,
     "sector": "-1",
-    "trailingPe": -1,
+    "Trailing PE": -1,
     "yearly_dividend": [],
-    "yield_1y": -1,
-    "yield_5y": -1
+    "Yield 1y": -1,
+    "Yield 5y": -1
 }
 
 fields = [
-    "symbol",
-    "averageValume",
+    "Symbol",
+    "Average Volume",
     "currency",
-    "debt_to_assent",
-    "industry",
-    "last_full_year_div",
-    "leveraged",
-    "marketCap",
-    "name",
+    "Debt/Assent",
+    "Industry",
+    "Dividend 1y",
+    "Leveraged",
+    "Market Cap",
+    "Name",
     "previousClose",
     "price_history",
-    "product_type",
-    "profitability",
+    "Product Type",
+    "Profitability",
     "sector",
-    "trailingPe",
+    "Trailing PE",
     "yearly_dividend",
-    "yield_1y",
-    "yield_5y"
+    "Yield 1y",
+    "Yield 5y"
 ]
 
 def leng(x):
@@ -230,11 +233,14 @@ def find_closest(arr, target, start, end, above):
     return find_closest(arr, target, start, mid - 1, above)
 
 def split_word(word):
-    # stocks name are usaly long so we split it to 2 lines
-    for index in range(max(0, len(word) // 2 - 2), len(word) - 1):
-        if word[index] == " ":
-            return (word[:index] + "\n" + word[index + 1:])
-
+    # stocks name are usually long so we split it to 2 lines
+    mid = len(word) // 2
+    for i in range(mid-1):
+        if word[mid - i] in [" ", "-"]:
+            return (word[:mid - i] + "\n" + word[mid - i + 1:])
+        if word[mid + i] in [" ", "-"]:
+            return (word[:mid + i] + "\n" + word[mid + i + 1:])
+    return word
 
 def filter_data(data):
     for s in data:
@@ -249,7 +255,7 @@ def filter_data(data):
                 elif i in [5, 9, 14, 16, 17]:
                     s[i] = two_point_percentage(s[i])
     mask_filter = [0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 13, 14, 16, 17]
-    return np.vstack((np.hstack((["symbol"], headlines)), data[:, mask_filter]))
+    return np.vstack((np.hstack((["Symbol"], headlines)), data[:, mask_filter]))
 
 def pretty_print(data):
     if len(data) == 0:

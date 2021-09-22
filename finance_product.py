@@ -1,3 +1,5 @@
+import os
+
 import yfinance as yf
 import pandas as pd
 import time
@@ -456,7 +458,7 @@ class FinanceProduct:
 
 
 if __name__ == '__main__':
-    FinanceProduct.clear_xlsx_data()
+    # FinanceProduct.clear_xlsx_data()
     print("satrt")
     fp = FinanceProduct("msft")
     fp.clear_xlsx_data()

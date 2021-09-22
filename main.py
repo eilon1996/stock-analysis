@@ -1,19 +1,12 @@
-import os
-import time
-
-import openpyxl
 import pandas as pd
+# import fix_yahoo_finance
 import numpy as np
 import pandas_datareader as dr
-import xlsxwriter
 import matplotlib.pyplot as plt
 import platform
 
-import finance_product as fp
-import database_handler
 import calculation
 import sys
-import datetime
 
 np.set_printoptions(threshold=sys.maxsize, precision=2, linewidth=500)
 
@@ -29,9 +22,10 @@ class Partfolio:
             print("please enter the symbol of the finance product you want to check: ")
             input_ok = False
             while not input_ok:
-                symbols.append(input("->"))
+                symbols.append(input("->").upper())
                 try:
-                    indexes.append(np.where(data[:, 0] == symbols[0].upper())[0][0])
+                    indexes += [i for i in range(len(data)) if data["Symbol"][i] == symbols[0]]
+                    # indexes.append(np.where(data[:, 0] == symbols[0].upper())[0][0])
                     break
                 except:
                     print(str(symbols[0]) + " is not a finance product, try again")  # need to add suggestion
@@ -45,7 +39,7 @@ class Partfolio:
                     user_input = input("->")
                     if user_input == "":
                         break
-                    symbols.append(user_input)
+                    symbols.append(user_input.upper())
 
                 if len(symbols) > 5:
                     print("too many products to compare")
@@ -54,7 +48,8 @@ class Partfolio:
                 tmp_symbols = []
                 for i, s in enumerate(symbols):
                     try:
-                        indexes.append(np.where(data[:, 0] == s.upper())[0][0])
+                        indexes += [j for j in range(len(data)) if data["Symbol"][j] == s.upper()]
+                        # indexes.append(np.where(data[:, 0] == s.upper())[0][0])
                         tmp_symbols.append(s)
                     except:
                         print(s + " is not a finance product")  # need to add suggestion
@@ -62,23 +57,33 @@ class Partfolio:
                 if len(symbols) == 0:
                     print("all the symbols you entered were not finance products, please try again")
                 else: input_ok = True
-        symbols_data = data[indexes]
-
-        names = []
-        for s in symbols_data:
-            for i in range(len(s))[1:]:
-                if calculation.default_values[calculation.fields[i]] == s[i]:
-                    s[i] = "-"
+        mask_filter = ["Symbol",
+                       "Average Volume",
+                       "Debt/Assent",
+                       "Industry",
+                       "Dividend 1y",
+                       "Market Cap",
+                       "Trailing PE",
+                       "Yield 1y",
+                       "Yield 5y"
+                       ]
+        symbols_data = data[mask_filter].T[indexes].T
+        names = np.asarray(data["Name"].T[indexes].T)
+        for s in symbols_data:  # s is the column name
+            for i in indexes:   # i is the value
+                if symbols_data[s][i] in [-1, "-1", []]:
+                    symbols_data[s][i] = "-"
                 else:
-                    if i in [1, 7]: s[i] = calculation.add_prefix(s[i])
-                    elif i in [3]: s[i] = calculation.two_point_percentage(s[i], True)
-                    elif i in [5, 14, 16, 17]: s[i] = calculation.two_point_percentage(s[i])
-                    elif i == 4: s[i] = calculation.split_word(s[i])
-                    elif i == 8: names.append(calculation.split_word(s[i]))
+                    if s in ["Average Volume", "Market Cap"]:
+                        symbols_data[s][i] = calculation.add_prefix(symbols_data[s][i])
+                    elif s in ["Debt/Assent", "Yield 1y", "Yield 5y"]:
+                        symbols_data[s][i] = calculation.two_point_percentage(symbols_data[s][i], percentage=True)
+                    elif s in ["Dividend 1y", "Trailing PE"]:
+                        symbols_data[s][i] = calculation.two_point_percentage(symbols_data[s][i])
+                    elif s == "Industry":
+                        symbols_data[s][i] = calculation.split_word(symbols_data[s][i])
 
-        mask_filter = [1,2,3,4,5,6,7,9,11,12,13,14,16,17]
-        symbols_data = symbols_data[:,mask_filter]
-
+        symbols_data = np.asarray(symbols_data)
         fig, ax = plt.subplots(2, 1)
         # hide axes
         fig.patch.set_visible(False)
@@ -97,7 +102,7 @@ class Partfolio:
         ax[1].axis('off')
         ax[1].axis('tight')
 
-        table = ax[1].table(cellText=symbols_data, colLabels=calculation.headlines, rowLabels=names, cellLoc='center')
+        table = ax[1].table(cellText=symbols_data, colLabels=mask_filter, rowLabels=names, cellLoc='center')
         fig.tight_layout()
         table.auto_set_font_size(False)
         table.set_fontsize(10)
@@ -112,6 +117,7 @@ class Partfolio:
         plt.ylabel('Price')
         plt.title('  VS  '.join(symbols))
         plt.legend()
+        plt.grid(color='k', linestyle='-', linewidth=2)
         plt.show()
         pass
 
@@ -160,7 +166,7 @@ class Partfolio:
                 except:
                     print("enter only numbers")
         elif user_input == 13 or user_input == 4:
-            print("index\tindustry")
+            print("index\tIndustry")
             for i, v in enumerate(calculation.all_sectors): print(str(i) + "\t" + str(v))
             user_input2 = input("choose from the above options by entering the index\n"
                                 "you can choose several options by separating with a comma ',': ")
@@ -262,7 +268,9 @@ class Partfolio:
 
 
     def interface(self):
-        data = np.asarray(pd.read_csv('data_files/data.csv', sep=';', header=None))
+        data = pd.read_csv('data_files/data.csv', sep=';', header=None)
+        data = pd.DataFrame(data.values, columns=calculation.fields)
+
         while True:
             print("hi, what action would you like to do now?\n"
                   "1: to check a certain stock or etf (not working yet)\n"
@@ -298,4 +306,3 @@ def show_precise_graph(self, length=5, start_date=None, end_date=None):
 if __name__ == '__main__':
     p = Partfolio()
     p.interface()
-    # p.compare(["MSFT", "AAPL", "QQQ"])
