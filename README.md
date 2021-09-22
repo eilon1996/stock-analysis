@@ -1,15 +1,20 @@
 # Stock Analysis	
 
-Stock Analysis will help you check out stocks, compare them or even filter them.
-from 12861 finance products you can choose the best suited for you based on yields of price or dividend in specific years,
-PE ratio or the profitability of the company.
-compare visual graphs of any stacks and export the data in to excel file.
+<h1>Stock Analysis</h1>
 
-2 shorts video (less then 30 seconds) that show the script in action
+<img src="https://github.com/eilon1996/stock-analysis/blob/master/stock.png" width="512" height="253"/>
 
-https://www.youtube.com/watch?v=GIDT-iHpExc&ab_channel=eilontoledano
+<h4>Stock Analysis will help you find and compare stocks and other finance products</h4>
+<h4>you can filter the best stock for you out of 12861 options based on:</h4>
 
-https://www.youtube.com/watch?v=5dSntCRkA6c&ab_channel=eilontoledano
+<h4>for the remote conrol:  </h4>
+<ul>
+  <li>yields in a specific time</li>
+  <li>dividend distribution</li>
+  <li>PE ratio  </li>
+  <li>and much more </li>
+</ul>
+
  
 the Python script collected the data from all USA stocks, by calling a google cloud function using multi thread.
 and store the data in firebase realtime database.
