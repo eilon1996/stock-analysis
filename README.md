@@ -2,7 +2,7 @@
 
 <h1>Stock Analysis</h1>
 
-<img src="https://github.com/eilon1996/stock-analysis/blob/master/stock.png" width="512" height="253"/>
+<img src="https://github.com/eilon1996/stock-analysis/blob/master/stock.png" width="768" height="380"/>
 
 <h4>Stock Analysis will help you find and compare stocks and other finance products</h4>
 <h4>you can filter the best stock for you out of 12861 options based on:</h4>
