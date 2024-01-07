@@ -1,148 +1,131 @@
-import math
-
-import pandas_datareader as dr
 import numpy as np
-import itertools
 import xlsxwriter
 import os
 import pandas as pd
+import yfinance as yf
+from pandas import Timestamp
+from datetime import timedelta
+from collections import OrderedDict
 
 
-def data_to_xlsx(data, file_name):
-    if len(data) == 0:
-        print("there are no stocks left after the filter\nyou should reset your filter and try again")
-        return
-    workbook = xlsxwriter.Workbook(os.getcwd()+"\\excel_data\\"+file_name+".xlsx")
+def get_closest_valid_date(data, date_key):
+    for i in range(7):
+        if date_key in data and pd.notna(data[date_key]):
+            return data[date_key]
+        date_key -= timedelta(days=1)
+    raise Exception(f"value not found in date {date_key}")
+
+def calc_yearly_yields(ordered_dict):
+
+    yields = OrderedDict()
+    ordered_dict_items = list(ordered_dict.items())
+    for (_, previous), (year, current) in zip(ordered_dict_items, ordered_dict_items[1:]):
+        yields[year] = current/previous - 1
+
+    return yields
+
+
+
+def get_yearly_data(symbols):
+
+    dates_labels = ["pre corona", "corona bottom"]
+    dates = [[2020, 2, 10], [2020,3, 16]]
+
+
+    prices_by_years, dividends_by_years, desires_prices = {}, {}, {}
+    prices_yield_by_years, dividends_yield_by_years, desires_prices_yield = {}, {}, {}
+
+    for symbol in symbols:
+        data = yf.download(symbol, period="max", interval="1d", actions=True)
+        prices, dividends = data["Open"], data["Dividends"]
+
+        num_of_years = min(5, (len(prices) - 7)//365)
+        prices_by_years[symbol] = OrderedDict()
+        current_year = prices.keys()[-1].year
+        for i in range(num_of_years, -1, -1):
+            year = current_year - i
+            date_key = Timestamp(year, 1, 1)
+            prices_by_years[symbol][date_key.strftime('%d-%m-%Y')] = (get_closest_valid_date(prices, date_key))
+
+        prices_yield_by_years[symbol] = calc_yearly_yields(prices_by_years[symbol])
+
+        desires_prices[symbol] = OrderedDict()
+        for label, date in zip(dates_labels, dates):
+            date_key = Timestamp(*date)
+            desires_prices[symbol][label] = get_closest_valid_date(prices, date_key)
+
+        desires_prices_yield[symbol] = calc_yearly_yields(desires_prices[symbol])
+
+        valid_dividends = dividends[dividends.notna()]
+        dividends_by_years[symbol] = valid_dividends.groupby(valid_dividends.index.year).sum()
+        dividends_by_years[symbol] = dividends_by_years[symbol][-(num_of_years + 1):-1]
+        dividends_by_years[symbol].index = [f"01-01-{i+1}" for i in dividends_by_years[symbol].index]
+        dividends_by_years[symbol] = OrderedDict(dividends_by_years[symbol])
+
+        dividends_yield_by_years[symbol] = calc_yearly_yields(dividends_by_years[symbol])
+
+    df_list = []
+
+    for symbol in symbols:
+        prices_df1 = pd.DataFrame(prices_by_years[symbol], ["prices"])
+        prices_df2 = pd.DataFrame(desires_prices[symbol], ["prices"])
+        prices_df = pd.concat([prices_df1, prices_df2], axis=1)
+
+        yields_df1 = pd.DataFrame(prices_yield_by_years[symbol], ["prices yields"])
+        yields_df2 = pd.DataFrame(desires_prices_yield[symbol], ["prices yields"])
+        yields_df = pd.concat([yields_df1, yields_df2], axis=1)
+
+        dividends_df = pd.DataFrame(dividends_by_years[symbol], ["dividends"])
+
+        dividends_yield_df = pd.DataFrame(dividends_yield_by_years[symbol], ["dividends yields"])
+
+        acc_div = dividends_df.T.cumsum().T
+        acc_div = pd.concat([pd.DataFrame([0], index=["dividends"], columns=[prices_df1.columns[0]]), acc_div], axis=1)
+        total_yields0 = acc_div + prices_df1.iloc[0]
+        total_yields = pd.DataFrame([float("nan")] + [total_yields0.values[0][i+1] / total_yields0.values[0][i] - 1
+                                                      for i in range(len(total_yields0.values[0]) - 1)],
+                                                        index=prices_df1.columns, columns=["total yields"]).T
+
+        df_list.append(pd.concat([prices_df, yields_df, dividends_df, dividends_yield_df, total_yields], axis=0))
+
+    return df_list
+
+def data_to_xlsx(symbols, df_list):
+
+    workbook = xlsxwriter.Workbook(os.getcwd()+"\\excel_data\\"+"Stocks"+".xlsx")
     worksheet = workbook.add_worksheet()
 
-    worksheet.set_column(0, len(data[0]), width=30)
-    for col in range(len(data[0])):
-        for row in range(len(data)):
-            value = data[row][col]
-            if not isinstance(value, str):
-                value = float(str(value)[:5])
-            worksheet.write(row, col, value)
+    rows_titles = df_list[0].index
+    num_of_rows_for_symbol = len(rows_titles) + 1
+
+    cols_dates = df_list[0].columns
+    num_of_cols_for_symbol = len(cols_dates) + 2
+
+    worksheet.set_column(0, num_of_cols_for_symbol, width=30)
+
+    # write headers
+    for i, date in enumerate(cols_dates):
+        worksheet.write(0, 2+i, date)
+
+    for i, (symbol, df) in enumerate(zip(symbols, df_list)):
+        worksheet.write(num_of_rows_for_symbol*i + 1, 0, symbol)
+        for row, row_title in enumerate(rows_titles):
+            worksheet.write(row + num_of_rows_for_symbol*i + 1, 1, row_title)
+        for col, col_name in enumerate(df):
+            for row, value in enumerate(df[col_name]):
+                if not isinstance(value, str):
+                    if np.isnan(value): continue
+                    value = float(str(value)[:5])
+                worksheet.write(row + num_of_rows_for_symbol*i + 1, col + 2, value)
     workbook.close()
-    print("the data is ready in file " + file_name + " in folder data_files")
 
+def get_yearly_data_file(symbols):
+    symbols = symbols.split(",")
+    symbols = [symbol.upper() for symbol in symbols]
 
-def get_price(df, date):
-    if isinstance(date, int):
-        date = date*252-1
-        return df.Open[date]
+    df_list = get_yearly_data(symbols)
+    data_to_xlsx(symbols, df_list)
 
-    for i, y in enumerate(df.index.year):
-        if y == date[2]:
-            date_index = i
-            break
-
-    for i, m in enumerate(df.index.month[date_index:]):
-        if m == date[1]:
-            date_index += i
-            break
-
-    not_found = True
-    for i, d in enumerate(df.index.day[date_index:]):
-        if d == date[0]:
-            date_index += i
-            not_found = False
-            break
-
-    if not_found:
-        date_index += np.abs(df.index.day[date_index:date_index+30] - date[0]).argmin()
-
-    return df.Open[date_index]
-
-
-def get_data(symbols):
-    dates_labels = ["3 years", "pre corona", "corona bottom", "now"]
-    dates = [-3, [10,2,2020], [16,3,2020], 0]
-    prices = np.zeros((len(symbols), len(dates)))
-    for s_i, s in enumerate(symbols):
-        try:
-            df = dr.DataReader(s, 'yahoo')
-        except:
-            try:
-                if isinstance(s, float) and math.isnan(s):
-                    continue
-                elif "." in s:
-                    s.replace(".", "-")
-                elif s.isnumeric():
-                    s = s + ".HK"
-                else:
-                    continue
-                df = dr.DataReader(s, 'yahoo')
-            except Exception as e:
-                print(e)
-                print("symbol ", s, " didnt make it")
-                continue
-        for d_i, d in enumerate(dates):
-            try:
-                prices[s_i, d_i] = get_price(df, d)
-            except:
-                print("there was a problem in ", s, " at date ", d)
-
-    yields_labels = []
-    yields = []
-
-    np.seterr(divide='ignore')
-    for start, end in list(itertools.combinations(range(len(dates)), 2)):
-        tmp = (prices.T[end]/prices.T[start] - 1).T
-        tmp = np.asarray([str(t)[:5] for t in tmp])
-        tmp[tmp != tmp] = 0
-        tmp[tmp == "nan"] = 0
-        tmp[tmp == 'inf'] = 0
-
-        yields.append(tmp)
-        yields_labels.append(dates_labels[start]+" - "+dates_labels[end])
-
-    np.seterr(divide='raise')
-    yields = np.asarray(yields).T
-
-    prices_tmp = []
-    for p in prices:
-        p = [str(t)[:5] for t in p]
-        prices_tmp.append(p + [""] * (len(yields[0])-len(prices[0])))
-    dates_labels = dates_labels + [""]*(len(yields[0])-len(prices[0]))
-    prices = prices_tmp
-    gap_line = [""]*len(yields[0])
-
-    data = np.vstack((dates_labels, prices, gap_line, yields_labels, yields, gap_line,gap_line))
-    labels = np.hstack(("symbols", symbols, "", "symbols", symbols, "", "")).T
-
-    data_labels = np.hstack((np.asarray([labels]).T, data))
-    return data_labels
-
-
-def get_yields(symbol):
-    symbol = symbol.upper()
-    l = 'https://etfdb.com/etf/'+symbol+'/#holdings'
-    df = pd.read_html(l)
-    try:
-        df = df[2].values[:-1, [0,2]]
-    except:
-        df = df[1].values[:-1, [0,2]]
-    holdings = np.hstack(([symbol], df.T[0]))
-
-    data = get_data(holdings)
-    data_to_xlsx(data, file_name=symbol)
-
-def test():
-    s = "8473.HK"
-    df = dr.DataReader(s, 'yahoo')
-    dates = [-3, [10,2,2020], [16,3,2020], 0]
-    prices = []
-    for d_i, d in enumerate(dates):
-        try:
-            prices.append(get_price(df, d))
-        except:
-            print("there was a problem in ", s, " at date ", d)
 
 if __name__ == '__main__':
-    symbols = ["SPY"]
-    for s in symbols:
-        #try:
-        get_yields(s)
-        #except Exception as e:
-        #    print(e)
-    print("done")
+    get_yearly_data_file("SPY, QQQ, AAPL")

@@ -57,8 +57,8 @@ def handle_message(text, chat_id):
         help_mess = "It might take a minute"
         send_message(help_mess, chat_id)
         text = text.upper()
-        yields_by_date.get_yields(text)
-        send_file(text, chat_id)
+        yields_by_date.get_yearly_data_file(text)
+        send_file("Stocks", chat_id)
 
 
 def get_messages(updates):
