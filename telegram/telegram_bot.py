@@ -1,25 +1,15 @@
 import time
 import urllib
-
 import requests
 import json
 import yields_by_date
-
-bot_token = '1787104943:AAFURKAoq3_esmq6f5x5SsqAKRiXrnqv6Oo'
-bot_chatID = '684239556'
-
-def telegram_bot_sendtext(bot_message):
-    # user name: stock_etf_bot
-    send_text = 'https://api.telegram.org/bot' + bot_token + '/sendMessage?chat_id=' + bot_chatID + '&parse_mode=Markdown&text=' + bot_message
-
-    response = requests.get(send_text)
-
-    return response.json()
+from dotenv import dotenv_values
 
 
-bot_token = "<your-bot-token>"
-URL = "https://api.telegram.org/bot{}/".format(bot_token)
-URL = "https://api.telegram.org/bot1787104943:AAFURKAoq3_esmq6f5x5SsqAKRiXrnqv6Oo/"
+# Load variables from .env file
+config = dotenv_values('.env')
+BOT_TOKEN = config.get('BOT_TOKEN')
+URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
 
 def get_url(url):
@@ -49,18 +39,6 @@ def get_last_update_id(updates):
     return max(update_ids)
 
 
-def handle_message(text, chat_id):
-    if "start" in text:
-        help_mess = "Enter an ETF symbol and get excel file with its stocks data"
-        send_message(help_mess, chat_id)
-    else:
-        help_mess = "It might take a minute"
-        send_message(help_mess, chat_id)
-        text = text.upper()
-        yields_by_date.get_yearly_data_file(text)
-        send_file("Stocks", chat_id)
-
-
 def get_messages(updates):
     for update in updates["result"]:
         try:
@@ -73,18 +51,37 @@ def get_messages(updates):
 
 
 def send_message(text, chat_id):
-    url = URL + "sendMessage?text={}&chat_id={}".format(text, chat_id)
+    url = f"{URL}sendMessage?text={text}&chat_id={chat_id}"
     get_url(url)
+
 
 def send_photo(photo_name, chat_id):
     url = URL + "sendPhoto?chat_id=" + str(chat_id)
-    files = {'photo': open("./"+photo_name+".jpg", 'rb')}
+    files = {'photo': open(f"./{photo_name}.jpg", 'rb')}
     status = requests.post(url, files=files)
 
+
 def send_file(file_name, chat_id):
-    url = URL + "sendDocument?chat_id=" + str(chat_id)
-    files = {'document': open("./excel_data\\"+file_name+".xlsx", 'rb')}
-    status = requests.post(url, files=files)
+    chat_url = f"{URL}sendDocument?chat_id={chat_id}"
+    files = {'document': open(f"./excel_data\\{file_name}.xlsx", 'rb')}
+    status = requests.post(chat_url, files=files)
+    print(status)
+
+
+def handle_message(text, chat_id):
+    if "start" in text:
+        help_mess = "Enter an ETF symbol and get excel file with its stocks data"
+        send_message(help_mess, chat_id)
+    else:
+        help_mess = "preparing data..."
+        send_message(help_mess, chat_id)
+        try:
+            text = text.replace("%2C", ",").replace("+", " ")
+            yields_by_date.get_yearly_data_file(text)
+            send_file("Stocks", chat_id)
+        except Exception as e:
+            help_mess = f"something went wrong \n{e}"
+            send_message(help_mess, chat_id)
 
 
 def main():

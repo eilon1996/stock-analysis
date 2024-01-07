@@ -45,7 +45,7 @@ def get_yearly_data(symbols):
         for i in range(num_of_years, -1, -1):
             year = current_year - i
             date_key = Timestamp(year, 1, 1)
-            prices_by_years[symbol][date_key.strftime('%d-%m-%Y')] = (get_closest_valid_date(prices, date_key))
+            prices_by_years[symbol][date_key.strftime('%d-%m-%Y')] = get_closest_valid_date(prices, date_key)
 
         prices_yield_by_years[symbol] = calc_yearly_yields(prices_by_years[symbol])
 
