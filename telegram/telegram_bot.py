@@ -75,7 +75,7 @@ def send_photo(photo_name, chat_id):
 
 def send_file(file_name, chat_id):
     chat_url = f"{URL}sendDocument?chat_id={chat_id}"
-    files = {'document': open(f"./excel_data\\{file_name}.xlsx", 'rb')}
+    files = {'document': open(f"{file_name}.xlsx", 'rb')}
     status = requests.post(chat_url, files=files)
     print(status)
 
@@ -104,8 +104,6 @@ def main():
             if len(updates["result"]) > 0:
                 last_update_id = get_last_update_id(updates) + 1
                 get_messages(updates)
-        else:
-            print("no result key in updates\nupdates: ", updates)
 
         time.sleep(0.5)
 

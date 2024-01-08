@@ -92,7 +92,7 @@ def get_yearly_data(symbols):
 
 def data_to_xlsx(symbols, df_list):
 
-    workbook = xlsxwriter.Workbook(os.getcwd()+"\\excel_data\\"+"Stocks"+".xlsx")
+    workbook = xlsxwriter.Workbook("Stocks"+".xlsx")
     worksheet = workbook.add_worksheet()
 
     rows_titles = df_list[0].index
