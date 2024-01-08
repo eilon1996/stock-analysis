@@ -11,7 +11,17 @@ config = dotenv_values('.env')
 BOT_TOKEN = config.get('BOT_TOKEN')
 URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
-print("BOT_TOKEN: ", BOT_TOKEN)
+import os
+
+# Get the current directory
+current_directory = os.getcwd()
+
+# List all files and folders in the current directory
+files_and_folders = os.listdir(current_directory)
+
+# Print each file and folder
+for item in files_and_folders:
+    print(item)
 
 def get_url(url):
     response = requests.get(url)
