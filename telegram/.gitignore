@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+# Unignore my_file.py
+!telegram_bot.py
+!yields_by_date.py
+!excel_data
+!req.txt
+!.gitignore
