@@ -26,7 +26,7 @@ def get_json_from_url(url):
 
 
 def get_updates(offset=None):
-    url = URL + "getUpdates?timeout=100"
+    url = URL + "getUpdates?timeout=5"
     if offset:
         url += "&offset={}".format(offset)
     js = get_json_from_url(url)
@@ -89,10 +89,13 @@ def main():
     last_update_id = None
     while True:
         updates = get_updates(last_update_id)
-        print(updates)
-        if len(updates["result"]) > 0:
-            last_update_id = get_last_update_id(updates) + 1
-            get_messages(updates)
+        if updates.get("result"):
+            if len(updates["result"]) > 0:
+                last_update_id = get_last_update_id(updates) + 1
+                get_messages(updates)
+        else:
+            print("no result key in updates\nupdates: ", updates)
+
         time.sleep(0.5)
 
 
