@@ -15,6 +15,7 @@ import os
 
 # Get the current directory
 current_directory = os.getcwd()
+print("current_directory: ", current_directory)
 
 # List all files and folders in the current directory
 files_and_folders = os.listdir(current_directory)
