@@ -11,6 +11,7 @@ config = dotenv_values('.env')
 BOT_TOKEN = config.get('BOT_TOKEN')
 URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
+print("BOT_TOKEN: ", BOT_TOKEN)
 
 def get_url(url):
     response = requests.get(url)
